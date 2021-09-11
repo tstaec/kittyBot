@@ -1,6 +1,6 @@
 Autoplay Bot for bloodrizer's Kittens Game @ http://bloodrizer.ru/games/kittens
 
-Current Version -- v0.3
+Current Version -- v0.4
 
 To load:
 
