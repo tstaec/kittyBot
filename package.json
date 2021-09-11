@@ -1,0 +1,30 @@
+{
+  "name": "kittybot",
+  "version": "1.0.0",
+  "description": "Autoplay bot for the \"Kittens Game\"",
+  "main": "kittyBot.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tstaec/kittyBot.git"
+  },
+  "keywords": [
+    "kitten",
+    "bot"
+  ],
+  "author": "tstaec",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tstaec/kittyBot/issues"
+  },
+  "homepage": "https://github.com/tstaec/kittyBot#readme",
+  "devDependencies": {
+    "eslint": "^7.32.0",
+    "eslint-config-standard": "^16.0.3",
+    "eslint-plugin-import": "^2.24.2",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^5.1.0"
+  }
+}
