@@ -58,44 +58,6 @@ const kbBuildingLabels = [
   'Unicorn Pasture', 'Ziggurat', 'Chronosphere', 'AI Core'
 ]
 
-// const kbWorkshopNames = [
-//   'mineralHoes', 'ironHoes', 'mineralAxes', 'ironAxes', 'steelAxe', 'reinforcedSaw',
-//   'steelSaw', 'titaniumSaw', 'alloySaw', 'titaniumAxe', 'alloyAxe', 'unobtainiumAxe',
-//   'unobtainiumSaw', 'stoneBarns', 'reinforcedBarns', 'reinforcedWarehouses', 'titaniumBarns',
-//   'alloyBarns', 'concreteBarns', 'titaniumWarehouses', 'alloyWarehouses', 'concreteWarehouses',
-//   'storageBunkers', 'energyRifts', 'stasisChambers', 'voidEnergy', 'darkEnergy',
-//   'chronoforge', 'tachyonAccelerators', 'fluxCondensator', 'lhc', 'photovoltaic',
-//   'thinFilm', 'qdot', 'solarSatellites', 'cargoShips', 'barges', 'reactorVessel',
-//   'ironwood', 'concreteHuts', 'unobtainiumHuts', 'eludiumHuts', 'silos', 'refrigeration',
-//   'compositeBow', 'crossbow', 'railgun', 'bolas', 'huntingArmor', 'steelArmor',
-//   'alloyArmor', 'nanosuits', 'caravanserai', 'advancedRefinement', 'goldOre',
-//   'geodesy', 'register', 'strenghtenBuild', 'miningDrill', 'unobtainiumDrill',
-//   'coalFurnace', 'deepMining', 'pyrolysis', 'electrolyticSmelting', 'oxidation',
-//   'steelPlants', 'automatedPlants', 'nuclearPlants', 'rotaryKiln', 'fluidizedReactors',
-//   'nuclearSmelters', 'orbitalGeodesy', 'printingPress', 'offsetPress', 'photolithography',
-//   'uplink', 'starlink', 'cryocomputing', 'machineLearning', 'factoryAutomation',
-//   'advancedAutomation', 'pneumaticPress', 'combustionEngine', 'fuelInjectors', 'factoryLogistics',
-//   'carbonSequestration', 'factoryOptimization', 'factoryRobotics', 'spaceEngineers',
-//   'aiEngineers', 'chronoEngineers', 'spaceManufacturing', 'celestialMechanics', 'astrolabe',
-//   'titaniumMirrors', 'unobtainiumReflectors', 'eludiumReflectors', 'hydroPlantTurbines',
-//   'amBases', 'aiBases', 'amFission', 'amReactors', 'amReactorsMK2', 'voidReactors',
-//   'relicStation', 'amDrive', 'pumpjack', 'biofuel', 'unicornSelection', 'gmo',
-//   'cadSystems', 'seti', 'logistics', 'augumentation', 'internet', 'neuralNetworks',
-//   'assistance', 'enrichedUranium', 'coldFusion', 'thoriumReactors', 'enrichedThorium',
-//   'hubbleTelescope', 'satnav', 'satelliteRadio', 'astrophysicists', 'mWReactor',
-//   'eludiumCracker', 'thoriumEngine', 'oilRefinery', 'oilDistillation', 'factoryProcessing',
-//   'voidAspiration', 'distorsion', 'turnSmoothly', 'invisibleBlackHand',
-// ]
-
-const kbBuyBuildingsMethods = [
-  kbBuyField, kbBuyPasture, kbBuyAqueduct, kbBuyHut, kbBuyLogHouse, kbBuyMansion,
-  kbBuyLibrary, kbBuyAcademy, kbBuyObservatory, kbBuyBiolab, kbBuyBarn, kbBuyWarehouse,
-  kbBuyHarbor, kbBuyMine, kbBuyQuarry, kbBuyLumberMill, kbBuyOilWell, kbBuyAccelerator,
-  kbBuySteamworks, kbBuyMagneto, kbBuySmelter, kbBuyCalciner, kbBuyFactory, kbBuyReactor,
-  kbBuyAmphitheatre, kbBuyChapel, kbBuyTemple, kbBuyWorkshop, kbBuyTradepost, kbBuyMint,
-  kbBuyUnicornPasture, kbBuyZiggurat, kbBuychronosphere, kbBuyAiCore
-]
-
 const kbCatnipResource = gamePage.resPool.get('catnip')
 const kbWoodResource = gamePage.resPool.get('wood')
 const kbMineralsResource = gamePage.resPool.get('minerals')
@@ -152,169 +114,35 @@ const kbVoidResource = gamePage.resPool.get('void')
 
 // ########################################################################
 
-function kbBuyNonStageBuilding (bldg, rp) {
-  let ratiomod = gamePage.globalEffectsCached.priceRatio
-  if (bldg.name === 'hut') { ratiomod += gamePage.globalEffectsCached.hutPriceRatio }
-  let nextPrice, priceBelowMax, enoughResources
-  let purchasable = (true)
-  if (bldg.prices === undefined) {
-    console.log(bldg)
-    return
-  }
-  for (let i = 0; i < bldg.prices.length; i++) {
-    nextPrice = bldg.prices[i].val * Math.pow(bldg.priceRatio + ratiomod, bldg.val)
-    if (rp[i].maxValue > 0) { priceBelowMax = (nextPrice <= rp[i].maxValue) } else { priceBelowMax = (true) }
-    enoughResources = (nextPrice <= rp[i].value)
-    purchasable = (purchasable && priceBelowMax && enoughResources)
-  }
-  if (purchasable) { kbBuild(bldg.name) }
-}
-
-function kbBuyYesStageBuilding (bldg, stg, rp) {
-  let nextPrice, priceBelowMax, enoughResources
-  let purchasable = (true)
-  for (let i = 0; i < bldg.stages[stg].prices.length; i++) {
-    nextPrice = bldg.stages[stg].prices[i].val * Math.pow(bldg.priceRatio + gamePage.globalEffectsCached.priceRatio, bldg.val)
-    if (rp[i].maxValue > 0) { priceBelowMax = (nextPrice <= rp[i].maxValue) } else { priceBelowMax = (true) }
-    enoughResources = (nextPrice <= rp[i].value)
-    purchasable = (purchasable && priceBelowMax && enoughResources)
-  }
-  if (purchasable) { kbBuild(bldg.name) }
-}
-
-// ########################################################################
-
-function kbBuyField () { if (kbUse('catnip')) { kbBuyNonStageBuilding(gamePage.bld.get('field'), [kbCatnipResource]) } }
-
-function kbBuyPasture () { if (kbUse('catnip') && kbUse('wood')) { kbBuyYesStageBuilding(gamePage.bld.get('pasture'), 0, [kbCatnipResource, kbWoodResource]) } }
-
-function kbBuyAqueduct () { if (kbUse('minerals')) { kbBuyYesStageBuilding(gamePage.bld.get('aqueduct'), 0, [kbMineralsResource]) } }
-
-function kbBuyHut () { if (kbUse('wood')) { kbBuyNonStageBuilding(gamePage.bld.get('hut'), [kbWoodResource]) } }
-
-function kbBuyLogHouse () { if (kbUse('wood') && kbUse('minerals')) { kbBuyNonStageBuilding(gamePage.bld.get('logHouse'), [kbWoodResource, kbMineralsResource]) } }
-
-function kbBuyMansion () { if (kbUseUL('slab') && kbUseUL('steel') && kbUse('titanium')) { kbBuyNonStageBuilding(gamePage.bld.get('mansion'), [kbSlabResource, kbSteelResource, kbTitaniumResource]) } }
-
-function kbBuyLibrary () { if (kbUse('wood')) { kbBuyYesStageBuilding(gamePage.bld.get('library'), 0, [kbWoodResource]) } }
-
-function kbBuyAcademy () { if (kbUse('wood') && kbUse('minerals') && kbUse('science')) { kbBuyNonStageBuilding(gamePage.bld.get('academy'), [kbWoodResource, kbMineralsResource, kbScienceResource]) } }
-
-function kbBuyObservatory () { if (kbUseUL('scaffold') && kbUseUL('slab') && kbUse('iron') && kbUse('science')) { kbBuyNonStageBuilding(gamePage.bld.get('observatory'), [kbScaffoldResource, kbSlabResource, kbIronResource, kbScienceResource]) } }
-
-function kbBuyBiolab () { if (kbUseUL('slab') && kbUseUL('alloy') && kbUse('science')) { kbBuyNonStageBuilding(gamePage.bld.get('biolab'), [kbSlabResource, kbAlloyResource, kbScienceResource]) } }
-
-function kbBuyBarn () { if (kbUse('wood')) { kbBuyNonStageBuilding(gamePage.bld.get('barn'), [kbWoodResource]) } }
-
-function kbBuyWarehouse () { if (kbUseUL('beam') && kbUseUL('slab')) { kbBuyNonStageBuilding(gamePage.bld.get('warehouse'), [kbBeamResource, kbSlabResource]) } }
-
-function kbBuyHarbor () { if (kbUseUL('scaffold') && kbUseUL('slab') && kbUseUL('plate')) { kbBuyNonStageBuilding(gamePage.bld.get('harbor'), [kbScaffoldResource, kbSlabResource, kbPlateResource]) } }
-
-function kbBuyMine () { if (kbUse('wood')) { kbBuyNonStageBuilding(gamePage.bld.get('mine'), [kbWoodResource]) } }
-
-function kbBuyQuarry () { if (kbUseUL('scaffold') && kbUseUL('steel') && kbUseUL('slab')) { kbBuyNonStageBuilding(gamePage.bld.get('quarry'), [kbScaffoldResource, kbSteelResource, kbSlabResource]) } }
-
-function kbBuyLumberMill () { if (kbUse('wood') && kbUse('iron') && kbUse('minerals')) { kbBuyNonStageBuilding(gamePage.bld.get('lumberMill'), [kbWoodResource, kbIronResource, kbMineralsResource]) } }
-
-function kbBuyOilWell () { if (kbUseUL('steel') && kbUseUL('gear') && kbUseUL('scaffold')) { kbBuyNonStageBuilding(gamePage.bld.get('oilWell'), [kbSteelResource, kbGearResource, kbScaffoldResource]) } }
-
-function kbBuyAccelerator () { if (kbUse('titanium') && kbUseUL('concrete') && kbUse('uranium')) { kbBuyNonStageBuilding(gamePage.bld.get('accelerator'), [kbTitaniumResource, kbConcreteResource, kbUraniumResource]) } }
-
-function kbBuySteamworks () { if (kbUseUL('steel') && kbUseUL('gear') && kbUseUL('blueprint')) { kbBuyNonStageBuilding(gamePage.bld.get('steamworks'), [kbSteelResource, kbGearResource, kbBlueprintResource]) } }
-
-function kbBuyMagneto () { if (kbUseUL('alloy') && kbUseUL('gear') && kbUseUL('blueprint')) { kbBuyNonStageBuilding(gamePage.bld.get('magneto'), [kbAlloyResource, kbGearResource, kbBlueprintResource]) } }
-
-function kbBuySmelter () { if (kbUse('minerals')) { kbBuyNonStageBuilding(gamePage.bld.get('smelter'), [kbMineralsResource]) } }
-
-function kbBuyCalciner () { if (kbUseUL('steel') && kbUse('titanium') && kbUseUL('blueprint') && kbUse('oil')) { kbBuyNonStageBuilding(gamePage.bld.get('calciner'), [kbSteelResource, kbTitaniumResource, kbBlueprintResource, kbOilResource]) } }
-
-function kbBuyFactory () { if (kbUse('titanium') && kbUseUL('plate') && kbUseUL('concrete')) { kbBuyNonStageBuilding(gamePage.bld.get('factory'), [kbTitaniumResource, kbPlateResource, kbConcreteResource]) } }
-
-function kbBuyReactor () { if (kbUse('titanium') && kbUseUL('plate') && kbUseUL('concrete') && kbUseUL('blueprint')) { kbBuyNonStageBuilding(gamePage.bld.get('reactor'), [kbTitaniumResource, kbPlateResource, kbConcreteResource, kbBlueprintResource]) } }
-
-function kbBuyAmphitheatre () { if (kbUse('wood') && kbUse('minerals') && kbUseUL('parchment')) { kbBuyYesStageBuilding(gamePage.bld.get('amphitheatre'), 0, [kbWoodResource, kbMineralsResource, kbParchmentResource]) } }
-
-function kbBuyChapel () { if (kbUse('minerals') && kbUse('culture') && kbUseUL('parchment')) { kbBuyNonStageBuilding(gamePage.bld.get('chapel'), [kbMineralsResource, kbCultureResource, kbParchmentResource]) } }
-
-function kbBuyTemple () { if (kbUseUL('slab') && kbUseUL('plate') && kbUse('gold') && kbUseUL('manuscript')) { kbBuyNonStageBuilding(gamePage.bld.get('temple'), [kbSlabResource, kbPlateResource, kbGoldResource, kbParchmentResource]) } }
-
-function kbBuyWorkshop () { if (kbUse('wood') && kbUse('minerals')) { kbBuyNonStageBuilding(gamePage.bld.get('workshop'), [kbWoodResource, kbMineralsResource]) } }
-
-function kbBuyTradepost () { if (kbUse('wood') && kbUse('minerals') && kbUse('gold')) { kbBuyNonStageBuilding(gamePage.bld.get('tradepost'), [kbWoodResource, kbMineralsResource, kbGoldResource]) } }
-
-function kbBuyMint () { if (kbUse('minerals') && kbUseUL('plate') && kbUse('gold')) { kbBuyNonStageBuilding(gamePage.bld.get('mint'), [kbMineralsResource, kbPlateResource, kbGoldResource]) } }
-
-function kbBuyUnicornPasture () { if (kbUseUL('unicorns')) { kbBuyNonStageBuilding(gamePage.bld.get('unicornPasture'), [kbUnicornsResource]) } }
-
-function kbBuyZiggurat () { if (kbUseUL('megalith') && kbUseUL('scaffold') && kbUseUL('blueprint')) { kbBuyNonStageBuilding(gamePage.bld.get('ziggurat'), [kbMegalithResource, kbScaffoldResource, kbBlueprintResource]) } }
-
-function kbBuychronosphere () { if (kbUse('unobtainium') && kbUseUL('timeCrystal') && kbUseUL('blueprint') && kbUse('science')) { kbBuyNonStageBuilding(gamePage.bld.get('chronosphere'), [kbUnobtainiumResource, kbTimeCrystalResource, kbBlueprintResource, kbScienceResource]) } }
-
-function kbBuyAiCore () { if (kbUse('antimatter') && kbUse('science')) { kbBuyNonStageBuilding(gamePage.bld.get('aiCore'), [kbAntimatterResource, kbScienceResource]) } }
-
-// ########################################################################
-
-let kittyBotRunning = false
 let kittyBotInterval = 0
+let kbUseArray = []
 
+// eslint-disable-next-line no-unused-vars
 function kittyBotToggle () {
   if (document.getElementById('kittyBotRunningCheckbox').checked) {
-    kittyBotRunning = true
     kittyBotInterval = setInterval(kittyBotGo, 5000)
   } else {
-    kittyBotRunning = false
     clearInterval(kittyBotInterval)
   }
 }
 
 // ########################################################################
 
-function kbBuild (buildingName) {
+function kbBuildItems (activeTabName, tabIndex) {
   const origTab = gamePage.ui.activeTabId
-  gamePage.ui.activeTabId = 'Bonfire'
+  gamePage.ui.activeTabId = activeTabName
   gamePage.render()
-  const btn = gamePage.tabs[0].children
-  if (gamePage.bld.getBuildingExt(buildingName).meta.unlocked) {
-    for (let i = 2; i < gamePage.tabs[0].children.length; i++) {
-      try {
-        if (btn[i].model.metadata.name === buildingName) {
-          console.log('building: ' + buildingName)
-          btn[i].controller.buyItem(btn[i].model, {}, function (result) { if (result) { btn[i].update() } })
-        }
-      } catch (err) { console.log('err:' + err) }
-    }
+  let buttons = gamePage.tabs[tabIndex].buttons.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
+  // Bonfire tab contains the buttons as children not buttons.
+  if (buttons.length === 0) {
+    buttons = gamePage.tabs[tabIndex].children.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
   }
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
-}
-
-// ########################################################################
-
-function kbScience (scienceName) {
-  const origTab = gamePage.ui.activeTabId
-  gamePage.ui.activeTabId = 'Science'
-  gamePage.render()
-  const btn = gamePage.tabs[2].buttons
-  if (btn[scienceName].model.metadata.unlocked && btn[scienceName].model.metadata.researched !== true) {
-    try {
-      btn[scienceName].controller.buyItem(btn[scienceName].model, {}, function (result) { if (result) { btn[scienceName].update() } })
-    } catch (err) { console.log('err:' + err) }
-  }
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
-}
-
-// ########################################################################
-
-function kbBuildAllAvailableWorkshopItems () {
-  const origTab = gamePage.ui.activeTabId
-  gamePage.ui.activeTabId = 'Workshop'
-  gamePage.render()
-  const buttons = gamePage.tabs[3].buttons.filter(b => b.model.visible && b.model.enabled)
   buttons.forEach(btn => {
     try {
-      console.log('crafting: ' + btn.model.name)
-      btn.controller.buyItem(btn.model, {}, function (result) { if (result) { btn.update() } })
+      const requiredResources = btn.model.prices.map(p => p.name)
+      if (requiredResources.every(r => kbUse(r))) {
+        btn.controller.buyItem(btn.model, {}, function (result) { if (result) { console.log('built: ' + btn.model.name); btn.update() } })
+      }
     } catch (err) { console.log('err:' + err) }
   })
   gamePage.ui.activeTabId = origTab
@@ -323,52 +151,40 @@ function kbBuildAllAvailableWorkshopItems () {
 
 // ########################################################################
 
-function kbUse (resourceName) {
-  if (document.getElementById('kb_use_' + resourceName + '2').checked) {
-    const rp = gamePage.resPool.get(resourceName)
-    if (rp.perTickCached >= 0) {
-      if (rp.maxValue <= ((rp.perTickCached * 11) + rp.value)) {
-        return (true)
-      } else { return (false) }
-    } else {
-      return (false)
-    }
-  } else { return (document.getElementById('kb_use_' + resourceName + '1').checked) }
+function kbReloadUseConfiguration () {
+  kbUseArray = Array.from(document.querySelectorAll('*[id^="kb_use_"]')).map(element => {
+    const obj = {}
+    obj.id = element.id
+    obj.checked = element.checked
+    return obj
+  })
 }
 
-function kbUseUL (rs) { return (document.getElementById('kb_use_' + rs).checked) }
+// ########################################################################
+
+function kbUse (resourceName) {
+  // Check if any value of resource should be used
+  if (kbUseArray.find(c => c.id === 'kb_use_' + resourceName + '1').checked) {
+    return true
+  } else {
+    const rp = gamePage.resPool.get(resourceName)
+    const useMaxBox = kbUseArray.find(e => e.id === 'kb_use_' + resourceName + '2')
+    // Check if only maxed resources should be used and resources are atmax level
+    // Crafted resources dont have a max level and as such are missing the checkbox with '2' suffix
+    if (typeof (useMaxBox) !== 'undefined' && useMaxBox.checked && rp.perTickCached >= 0) {
+      return (rp.maxValue <= ((rp.perTickCached * 11) + rp.value))
+    }
+  }
+  // Either 'none' checkbox is selected or not enough resources are available
+  return false
+}
 
 // ########################################################################
 
 function kittyBotGo () {
-  kbBuildAllAvailableWorkshopItems()
-
-  for (let i = 0; i < kbBuildingNames.length; i++) {
-    if (document.getElementById('kb_bldInput_' + kbBuildingNames[i]).checked) {
-      kbBuyBuildingsMethods[i]()
-    }
-  }
-
-  for (let i = 0; i < kbScienceNames.length; i++) {
-    if (i === 6) { continue } // fix for inactive science "brewery"
-    if (gamePage.science.get(kbScienceNames[i]).researched) {
-      if (document.getElementById('kb_sciDiv_' + kbScienceNames[i]) != null) {
-        document.getElementById('kb_sciDiv_' + kbScienceNames[i]).style.display = 'none'
-      }
-    } else {
-      if (kbUse('science')) {
-        console.log('science: ' + kbScienceNames[i])
-        if (document.getElementById('kb_sciInput_' + kbScienceNames[i]).checked) {
-          const sciInfo = gamePage.science.get(kbScienceNames[i])
-          // console.log(sciInfo);
-          if (sciInfo.unlocked && !(sciInfo.researched)) {
-            const price = sciInfo.prices[0].val
-            if ((price <= kbScienceResource.maxValue) && (price <= kbScienceResource.value)) { kbScience(i) }
-          }
-        }
-      }
-    }
-  }
+  kbBuildItems('Workshop', 3)
+  kbBuildItems('Science', 2)
+  kbBuildItems('Bonfire', 0)
 
   // Craft Wood to Beams
   if (kbUse('wood') && ((kbWoodResource.maxValue - (kbWoodResource.perTickCached * 6)) <= kbWoodResource.value) && (kbWoodResource.perTickCached > 0)) {
@@ -401,33 +217,33 @@ function kittyBotGo () {
   }
 
   // Craft ALL Coal to Steel
-  if (kbUseUL('coal') && (kbCoalResource.value >= 100)) { gamePage.craftAll('steel') }
+  if (kbUse('coal') && (kbCoalResource.value >= 100)) { gamePage.craftAll('steel') }
 
   // Craft Steel to Gear (Oil Well needs smallest ratio, 2 steel to 1 gear, so let's maintain that ratio)
-  if (kbUseUL('steel') && (kbGearResource.value < kbSteelResource.value / 2)) { gamePage.craft('gear', 1) }
+  if (kbUse('steel') && (kbGearResource.value < kbSteelResource.value / 2)) { gamePage.craft('gear', 1) }
 
   // Craft ALL furs to parchment
   if (gamePage.resPool.get('furs').value >= 175) { gamePage.craftAll('parchment') }
 
   // Craft parchment to manuscript, maintain 1 to 1 ratio
-  if (kbUseUL('parchment') && kbUse('culture') && ((kbCultureResource.maxValue - (kbCultureResource.perTickCached * 6)) <= kbCultureResource.value) && (kbManuscriptResource.value < kbParchmentResource.value)) {
+  if (kbUse('parchment') && kbUse('culture') && ((kbCultureResource.maxValue - (kbCultureResource.perTickCached * 6)) <= kbCultureResource.value) && (kbManuscriptResource.value < kbParchmentResource.value)) {
     gamePage.craft('manuscript', Math.round(0.5 + kbCultureResource.perTickCached * 5 / 400))
   }
 
   // Craft manuscript to compendium, maintain 1 to 1 ratio
-  if (kbUseUL('manuscript') && kbUse('science') && ((kbScienceResource.maxValue - (kbScienceResource.perTickCached * 6)) <= kbScienceResource.value) && (kbCompendiumResource.value < kbManuscriptResource.value)) {
+  if (kbUse('manuscript') && kbUse('science') && ((kbScienceResource.maxValue - (kbScienceResource.perTickCached * 6)) <= kbScienceResource.value) && (kbCompendiumResource.value < kbManuscriptResource.value)) {
     gamePage.craft('compedium', Math.round(0.5 + kbScienceResource.perTickCached * 5 / 10000))
   }
 
   // Craft compendium to blueprint, maintain 1 to 1 ratio, unless Genetics hasn't been researched yet but is checked
   let kbGeneticsDiff = 0
   if (!(gamePage.science.metaCache.genetics.researched)) { kbGeneticsDiff = 1500 }
-  if (kbUseUL('compendium') && kbUse('science') && ((kbScienceResource.maxValue - (kbScienceResource.perTickCached * 6)) <= kbScienceResource.value) && (kbBlueprintResource.value < (kbCompendiumResource.value - kbGeneticsDiff))) {
+  if (kbUse('compendium') && kbUse('science') && ((kbScienceResource.maxValue - (kbScienceResource.perTickCached * 6)) <= kbScienceResource.value) && (kbBlueprintResource.value < (kbCompendiumResource.value - kbGeneticsDiff))) {
     gamePage.craft('blueprint', Math.round(0.5 + kbScienceResource.perTickCached * 5 / 25000))
   }
 
   // Use ALL Catpower for hunt
-  if (kbUseUL('catpower') && ((kbCatpowerResource.maxValue - (kbCatpowerResource.perTickCached * 6)) <= kbCatpowerResource.value)) { console.log('hunting'); gamePage.resPool.village.huntAll() }
+  if (kbUse('catpower') && ((kbCatpowerResource.maxValue - (kbCatpowerResource.perTickCached * 6)) <= kbCatpowerResource.value)) { console.log('hunting'); gamePage.resPool.village.huntAll() }
 
   // Auto Observe Astronomical Events
   if (document.getElementById('kb_observeEvents').checked) {
@@ -463,55 +279,16 @@ function rgb2hex (rgb) {
     : ''
 }
 
+// eslint-disable-next-line no-unused-vars
 function kbToggleUI () {
-  document.getElementById('kittyBotDiv').style.backgroundColor = rgb2hex(window.getComputedStyle(document.body, null).getPropertyValue('background-color'))
-  $('#kittyBotDiv').toggle()
-}
-
-// ########################################################################
-
-function kbBuildingUp (bldg) {
-  const idx = kbBuildingNames.indexOf(bldg)
-  if (idx !== 0) {
-    document.getElementById('kb_buildings').insertBefore(document.getElementById('kb_bldDiv_' + kbBuildingNames[idx]), document.getElementById('kb_bldDiv_' + kbBuildingNames[idx - 1]))
-
-    let temp
-
-    temp = kbBuildingNames[idx]
-    kbBuildingNames.splice(idx, 1)
-    kbBuildingNames.splice(idx - 1, 0, temp)
-
-    temp = kbBuildingLabels[idx]
-    kbBuildingLabels.splice(idx, 1)
-    kbBuildingLabels.splice(idx - 1, 0, temp)
-
-    temp = kbBuyBuildingsMethods[idx]
-    kbBuyBuildingsMethods.splice(idx, 1)
-    kbBuyBuildingsMethods.splice(idx - 1, 0, temp)
+  const botDiv = document.getElementById('kittyBotDiv')
+  botDiv.style.backgroundColor = rgb2hex(window.getComputedStyle(document.body, null).getPropertyValue('background-color'))
+  if (botDiv.style.display === 'none') {
+    botDiv.style.display = 'inline'
+  } else {
+    botDiv.style.display = 'none'
   }
-}
-
-// ########################################################################
-
-function kbBuildingdown (bldg) {
-  const idx = kbBuildingNames.indexOf(bldg)
-  if (idx !== kbBuildingNames.length - 1) {
-    document.getElementById('kb_buildings').insertBefore(document.getElementById('kb_bldDiv_' + kbBuildingNames[idx + 1]), document.getElementById('kb_bldDiv_' + kbBuildingNames[idx]))
-
-    let temp
-
-    temp = kbBuildingNames[idx]
-    kbBuildingNames.splice(idx, 1)
-    kbBuildingNames.splice(idx + 1, 0, temp)
-
-    temp = kbBuildingLabels[idx]
-    kbBuildingLabels.splice(idx, 1)
-    kbBuildingLabels.splice(idx + 1, 0, temp)
-
-    temp = kbBuyBuildingsMethods[idx]
-    kbBuyBuildingsMethods.splice(idx, 1)
-    kbBuyBuildingsMethods.splice(idx + 1, 0, temp)
-  }
+  kbReloadUseConfiguration()
 }
 
 // ########################################################################
@@ -551,7 +328,7 @@ function kbUIAccess () {
   tempString +=
    ' & ' +
    '<a onclick="kbToggleUI();" href="#">kittyBot</a>' +
-   '<span style="font-size: small;"> ver 0.3 by LoyLT</span>'
+   '<span style="font-size: small;"> ver 0.4 by LoyLT & tstaec</span>'
   kittyBotUIaccess.innerHTML = tempString
 
   //    kittyBotUI.className = 'dialog help';
@@ -639,33 +416,33 @@ function kbUIAccess () {
 '<input id="kb_use_sorrow1" type="radio" name="kb_use_sorrow" value="1" style="vertical-align: sub;" checked />any' +
 '<input id="kb_use_sorrow2" type="radio" name="kb_use_sorrow" value="2" style="vertical-align: sub;" />max | Sorrow<br />' +
 '<br />' +
-'<input id="kb_use_coal" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Coal<br />' +
-'<input id="kb_use_catpower" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Catpower<br />' +
-'<input id="kb_use_beam" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Beam<br />' +
-'<input id="kb_use_slab" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Slab<br />' +
-'<input id="kb_use_plate" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Plate<br />' +
-'<input id="kb_use_steel" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Steel<br />' +
-'<input id="kb_use_concrete" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Concrete<br />' +
-'<input id="kb_use_gear" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Gear<br />' +
-'<input id="kb_use_alloy" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Alloy<br />' +
-'<input id="kb_use_eludium" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Eludium<br />' +
-'<input id="kb_use_scaffold" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Scaffold<br />' +
-'<input id="kb_use_ship" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Ship<br />' +
-'<input id="kb_use_tanker" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Tanker<br />' +
-'<input id="kb_use_kerosene" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Kerosene<br />' +
-'<input id="kb_use_parchment" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Parchment<br />' +
-'<input id="kb_use_manuscript" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Manuscript<br />' +
-'<input id="kb_use_compendium" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Compendium<br />' +
-'<input id="kb_use_blueprint" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Blueprint<br />' +
-'<input id="kb_use_thorium" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Thorium<br />' +
-'<input id="kb_use_megalith" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Megalith<br />' +
-'<input id="kb_use_starchart" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Starchart<br />' +
-'<input id="kb_use_unicorns" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Unicorns<br />' +
-'<input id="kb_use_alicorn" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Alicorn<br />' +
-'<input id="kb_use_tears" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Tears<br />' +
-'<input id="kb_use_timeCrystal" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Time Crystal<br />' +
-'<input id="kb_use_relic" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Relic<br />' +
-'<input id="kb_use_void" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Void<br />' +
+'<input id="kb_use_coal1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Coal<br />' +
+'<input id="kb_use_catpower1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Catpower<br />' +
+'<input id="kb_use_beam1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Beam<br />' +
+'<input id="kb_use_slab1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Slab<br />' +
+'<input id="kb_use_plate1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Plate<br />' +
+'<input id="kb_use_steel1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Steel<br />' +
+'<input id="kb_use_concrete1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Concrete<br />' +
+'<input id="kb_use_gear1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Gear<br />' +
+'<input id="kb_use_alloy1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Alloy<br />' +
+'<input id="kb_use_eludium1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Eludium<br />' +
+'<input id="kb_use_scaffold1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Scaffold<br />' +
+'<input id="kb_use_ship1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Ship<br />' +
+'<input id="kb_use_tanker1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Tanker<br />' +
+'<input id="kb_use_kerosene1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Kerosene<br />' +
+'<input id="kb_use_parchment1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Parchment<br />' +
+'<input id="kb_use_manuscript1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Manuscript<br />' +
+'<input id="kb_use_compendium1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Compendium<br />' +
+'<input id="kb_use_blueprint1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Blueprint<br />' +
+'<input id="kb_use_thorium1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Thorium<br />' +
+'<input id="kb_use_megalith1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Megalith<br />' +
+'<input id="kb_use_starchart1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Starchart<br />' +
+'<input id="kb_use_unicorns1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Unicorns<br />' +
+'<input id="kb_use_alicorn1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Alicorn<br />' +
+'<input id="kb_use_tears1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Tears<br />' +
+'<input id="kb_use_timeCrystal1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Time Crystal<br />' +
+'<input id="kb_use_relic1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Relic<br />' +
+'<input id="kb_use_void1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Void<br />' +
 '</div>' +
 '<p style="text-align: center;"><u>Cheats and Other Stuff</u></p>' +
 '<div style="border-style: solid; border-width: 1px; padding: 5px;">' +
