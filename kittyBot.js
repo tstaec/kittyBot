@@ -151,6 +151,70 @@ function kbBuildItems (activeTabName, tabIndex) {
 
 // ########################################################################
 
+function kbPromoteKittens () {
+  const origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Village'
+  gamePage.render()
+  if (document.getElementById('kb_promote').checked && kbUse('gold')) {
+    const btn = gamePage.tabs[1].promoteKittensBtn
+    if (btn.model.visible && btn.model.enabled) {
+      btn.controller.buyItem(btn.model, {}, function (result) { if (result) { btn.update(); kbManageKittens() } })
+    }
+  }
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
+}
+// ########################################################################
+
+function kbManageKittens () {
+  if (document.getElementById('kb_manage').checked) {
+    const btn = gamePage.tabs[1].optimizeJobsBtn
+    if (btn.model.visible && btn.model.enabled) {
+      btn.controller.buyItem(btn.model, {}, function (result) { if (result) { btn.update() } })
+    }
+  }
+}
+
+// ########################################################################
+
+function kbEnsureLeaderExists () {
+  const origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Settlement'
+  gamePage.render()
+  if (document.getElementById('kb_ensure_leader').checked) {
+    const worker = gamePage.village.sim.kittens.sort(function (a, b) { return b.rank - a.rank })[0]
+    if (typeof (worker) !== 'undefined' && gamePage.village.leader === null) {
+      gamePage.village.leader = worker
+      worker.isLeader = true
+    }
+  }
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
+}
+
+// ########################################################################
+
+function kbBuildEmbassies () {
+  const origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Trade'
+  gamePage.render()
+  if (document.getElementById('kb_build_embassies').checked) {
+    const race = gamePage.tabs[4].racePanels.find(rp => rp.embassyButton.model.enabled && rp.embassyButton.model.visible)
+    if (typeof (race) !== 'undefined') {
+      const embassyButton = race.embassyButton
+      if (typeof (embassyButton) !== 'undefined' && kbUse('culture')) {
+        try {
+          embassyButton.controller.buyItem(embassyButton.model, {}, function (result) { if (result) { console.log('built embassy: ' + embassyButton.race.name); embassyButton.update() } })
+        } catch (err) { console.log('err:' + err) }
+      }
+    }
+  }
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
+}
+
+// ########################################################################
+
 function kbReloadUseConfiguration () {
   kbUseArray = Array.from(document.querySelectorAll('*[id^="kb_use_"]')).map(element => {
     const obj = {}
@@ -263,6 +327,9 @@ function kittyBotGo () {
 
   // Gather 1 Catnip
   gamePage.bld.gatherCatnip()
+  kbPromoteKittens()
+  kbEnsureLeaderExists()
+  kbBuildEmbassies()
 
   kbLimitConsumer()
 }
@@ -307,6 +374,8 @@ function kbLimitConsumer () {
     let maxSmelterCount = Math.min(Math.floor((woodPerTick * limit) / Math.abs(smelterWoodPerTickCon)), Math.floor((mineralsPerTick * 0.5) / Math.abs(smelterMineralsPerTickCon)))
 
     if (maxSmelterCount < 0) maxSmelterCount = 0
+    // Check if the calculated smelter count is bigger than the possible smelter count.
+    if (maxSmelterCount > smelter.model.metadata.val) maxSmelterCount = smelter.model.metadata.val
 
     smelter.model.on = maxSmelterCount
     smelter.model.metadata.on = maxSmelterCount
@@ -340,6 +409,12 @@ function kbUIAccess () {
   tempString = ''
   tempString +=
 '<input type="checkbox" id="kittyBotRunningCheckbox" style="display: inline-block;" onClick="kittyBotToggle();" />kittyBot is running if this is checked.<br />' +
+'<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+'<p>Actions:</p>' +
+'<input id="kb_promote" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Promote<br />' +
+'<input id="kb_manage" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Manage workers<br />' +
+'<input id="kb_ensure_leader" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Ensure Leader<br />' +
+'<input id="kb_build_embassies" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Build embassies<br />' +
 '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
 '<p><u>Spend Resources on:</u></p>' +
 '<div id="kb_buildings" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
@@ -387,8 +462,8 @@ function kbUIAccess () {
 '<input id="kb_use_titanium1" type="radio" name="kb_use_titanium" value="1" style="vertical-align: sub;" checked />any' +
 '<input id="kb_use_titanium2" type="radio" name="kb_use_titanium" value="2" style="vertical-align: sub;" />max | Titanium<br />' +
 '<input id="kb_use_gold0" type="radio" name="kb_use_gold" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_gold1" type="radio" name="kb_use_gold" value="1" style="vertical-align: sub;" checked />any' +
-'<input id="kb_use_gold2" type="radio" name="kb_use_gold" value="2" style="vertical-align: sub;" />max | Gold<br />' +
+'<input id="kb_use_gold1" type="radio" name="kb_use_gold" value="1" style="vertical-align: sub;" />any' +
+'<input id="kb_use_gold2" type="radio" name="kb_use_gold" value="2" style="vertical-align: sub;" checked />max | Gold<br />' +
 '<input id="kb_use_oil0" type="radio" name="kb_use_oil" value="0" style="vertical-align: sub;" />never' +
 '<input id="kb_use_oil1" type="radio" name="kb_use_oil" value="1" style="vertical-align: sub;" checked />any' +
 '<input id="kb_use_oil2" type="radio" name="kb_use_oil" value="2" style="vertical-align: sub;" />max | Oil<br />' +
