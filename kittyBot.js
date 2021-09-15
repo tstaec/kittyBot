@@ -7,8 +7,22 @@
 // #                           https://kittensgame.com                          #
 // ##############################################################################
 
+// todo:
+// -Do we really nned to switch active tab?
+// - get rid of the resource variables
+// - fix ui
+// - fill ui from gamePage not list of names
+// - Check ui when building shit
+
 // Define global variables to satisfy ESLint
 /* global gamePage */
+
+// configurable variables
+const kbCraftRatio = 2
+const kbRunInterval = 5000
+const kbTicksPerSecond = 5
+
+// ########################################################################
 
 const kbScienceNames = [
   'calendar', 'agriculture', 'archery', 'mining', 'metal',
@@ -58,60 +72,6 @@ const kbBuildingLabels = [
   'Unicorn Pasture', 'Ziggurat', 'Chronosphere', 'AI Core'
 ]
 
-const kbCatnipResource = gamePage.resPool.get('catnip')
-const kbWoodResource = gamePage.resPool.get('wood')
-const kbMineralsResource = gamePage.resPool.get('minerals')
-const kbIronResource = gamePage.resPool.get('iron')
-const kbTitaniumResource = gamePage.resPool.get('titanium')
-const kbGoldResource = gamePage.resPool.get('gold')
-const kbOilResource = gamePage.resPool.get('oil')
-const kbUraniumResource = gamePage.resPool.get('uranium')
-const kbUnobtainiumResource = gamePage.resPool.get('unobtainium')
-const kbCatpowerResource = gamePage.resPool.get('manpower')
-const kbScienceResource = gamePage.resPool.get('science')
-const kbCultureResource = gamePage.resPool.get('culture')
-const kbFaithResource = gamePage.resPool.get('faith')
-const kbAntimatterResource = gamePage.resPool.get('antimatter')
-const kbSorrowResource = gamePage.resPool.get('sorrow')
-
-const kbCoalResource = gamePage.resPool.get('coal') // coal isn't used for buying so always turn it to steel
-
-const kbBeamResource = gamePage.resPool.get('beam') // craft level 1
-const kbSlabResource = gamePage.resPool.get('slab') // craft level 1
-const kbPlateResource = gamePage.resPool.get('plate') // craft level 1
-const kbSteelResource = gamePage.resPool.get('steel') // craft level 1
-
-const kbConcreteResource = gamePage.resPool.get('concrate') // craft level 2
-const kbGearResource = gamePage.resPool.get('gear') // craft level 2
-const kbAlloyResource = gamePage.resPool.get('alloy') // craft level 2
-
-const kbEludiumResource = gamePage.resPool.get('eludium') // craft level 3
-
-const kbScaffoldResource = gamePage.resPool.get('scaffold') // craft level 2
-
-const kbShipResource = gamePage.resPool.get('ship') // craft level 3
-
-const kbTankerResource = gamePage.resPool.get('tanker') // craft level 4
-
-const kbKeroseneResource = gamePage.resPool.get('kerosene') // craft level 1
-
-const kbParchmentResource = gamePage.resPool.get('parchment') // craft level 1
-const kbManuscriptResource = gamePage.resPool.get('manuscript') // craft level 2
-const kbCompendiumResource = gamePage.resPool.get('compedium') // craft level 3
-const kbBlueprintResource = gamePage.resPool.get('blueprint') // craft level 4
-
-const kbThoriumResource = gamePage.resPool.get('thorium') // craft level 1
-
-const kbMegalithResource = gamePage.resPool.get('megalith') // craft level 3
-
-const kbStarchartResource = gamePage.resPool.get('starchart')
-const kbUnicornsResource = gamePage.resPool.get('unicorns')
-const kbAlicornResource = gamePage.resPool.get('alicorn')
-const kbTearsResource = gamePage.resPool.get('tears')
-const kbTimeCrystalResource = gamePage.resPool.get('timeCrystal')
-const kbRelicResource = gamePage.resPool.get('relic')
-const kbVoidResource = gamePage.resPool.get('void')
-
 // ########################################################################
 
 let kittyBotInterval = 0
@@ -120,7 +80,7 @@ let kbUseArray = []
 // eslint-disable-next-line no-unused-vars
 function kittyBotToggle () {
   if (document.getElementById('kittyBotRunningCheckbox').checked) {
-    kittyBotInterval = setInterval(kittyBotGo, 5000)
+    kittyBotInterval = setInterval(kittyBotGo, kbRunInterval)
   } else {
     clearInterval(kittyBotInterval)
   }
@@ -134,17 +94,36 @@ function kbBuildItems (activeTabName, tabIndex) {
   gamePage.render()
   let buttons = gamePage.tabs[tabIndex].buttons.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
   // Bonfire tab contains the buttons as children not buttons.
-  if (buttons.length === 0) {
+  if (activeTabName === 'Bonfire') {
     buttons = gamePage.tabs[tabIndex].children.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
+  }
+  if (activeTabName === 'Religion') {
+    buttons = gamePage.tabs[tabIndex].rUpgradeButtons.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
   }
   buttons.forEach(btn => {
     try {
-      const requiredResources = btn.model.prices.map(p => p.name)
-      if (requiredResources.every(r => kbUse(r))) {
+      if (kbCheckPrices(btn.model.prices)) {
         btn.controller.buyItem(btn.model, {}, function (result) { if (result) { console.log('built: ' + btn.model.name); btn.update() } })
       }
     } catch (err) { console.log('err:' + err) }
   })
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
+}
+
+// ########################################################################
+
+function kbSendCaravans () {
+  const origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Trade'
+  gamePage.render()
+  const tradeTarget = document.getElementById('kb_trade_routes').value
+  if (tradeTarget !== 'kb_trade_none') {
+    const targetButton = gamePage.tabs[4].racePanels.find(rp => rp.race.name === tradeTarget.replace('kb_trade_', ''))
+    if (kbCheckPrices(targetButton.race.buys)) {
+      targetButton.tradeBtn.controller.buyItem(targetButton.tradeBtn.model, {}, function (result) { if (result) { targetButton.tradeBtn.update() } })
+    }
+  }
   gamePage.ui.activeTabId = origTab
   gamePage.render()
 }
@@ -164,6 +143,23 @@ function kbPromoteKittens () {
   gamePage.ui.activeTabId = origTab
   gamePage.render()
 }
+
+// ########################################################################
+
+function kbPraiseTheSun () {
+  const origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Religion'
+  gamePage.render()
+  if (document.getElementById('kb_praise').checked && kbUse('faith')) {
+    const btn = gamePage.tabs[5].praiseBtn
+    if (btn.model.visible && btn.model.enabled) {
+      btn.controller.buyItem(btn.model, {}, function (result) { if (result) { btn.update() } })
+    }
+  }
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
+}
+
 // ########################################################################
 
 function kbManageKittens () {
@@ -227,6 +223,8 @@ function kbReloadUseConfiguration () {
 // ########################################################################
 
 function kbUse (resourceName) {
+  // Ignore resources that have only a single purpose and thus can not be missused.
+  if (resourceName === 'furs') return true
   // Check if any value of resource should be used
   if (kbUseArray.find(c => c.id === 'kb_use_' + resourceName + '1').checked) {
     return true
@@ -245,66 +243,75 @@ function kbUse (resourceName) {
 
 // ########################################################################
 
+function kbCheckPrices (prices) {
+  return prices.every(p => kbUse(p.name))
+}
+
+function kbCheckRatio (materials, targetResourceName, ratio) {
+  return materials.every(function (material) {
+    const resource = gamePage.resPool.get(material.name)
+    const targetResource = gamePage.resPool.get(targetResourceName)
+    const actualRatio = resource.value / targetResource.value
+    // Only craft items if we would reach max storage in the next tick
+    return resource.perTickCached > 0 &&
+      actualRatio > ratio &&
+      resource.maxValue - (resource.perTickCached * kbTicksPerSecond * (kbRunInterval / 1000)) <= resource.value
+  })
+}
+
+function kbCalculateCraftAmount (materials) {
+  return Math.min(materials.map(function (material) {
+    const resource = gamePage.resPool.get(material.name)
+    return Math.ceil(resource.perTickCached * kbTicksPerSecond * (kbRunInterval / 1000) / material.val)
+  }))
+}
+
+// ########################################################################
+
+function kbCraftWithRatio (resourceName, ratio) {
+  const button = gamePage.tabs[3].craftBtns.find(btn => btn.craftName === resourceName && btn.model.enabled && btn.model.visible)
+  if (typeof (button) !== 'undefined' && kbCheckPrices(button.model.prices) && kbCheckRatio(button.model.prices, button.craftName, ratio)) {
+    gamePage.craft(button.craftName, kbCalculateCraftAmount(button.model.prices))
+  }
+}
+
+function kbCraftAll (resourceName) {
+  const button = gamePage.tabs[3].craftBtns.find(btn => btn.craftName === resourceName && btn.model.enabled && btn.model.visible)
+  if (typeof (button) !== 'undefined') {
+    gamePage.craftAll(button.craftName)
+  }
+}
+
+function kbCraft (resourceName) {
+  const origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Workshop'
+  gamePage.render()
+  kbCraftWithRatio('beam', Number.MAX_VALUE)
+  kbCraftWithRatio('scaffold', 0.2)
+  kbCraftWithRatio('steel', Number.MAX_VALUE)
+  kbCraftWithRatio('slab', Number.MAX_VALUE)
+  kbCraftWithRatio('plate', Number.MAX_VALUE)
+  kbCraftWithRatio('kerosene', Number.MAX_VALUE)
+  kbCraftWithRatio('thorium', 10)
+  kbCraftWithRatio('gear', 2)
+  kbCraftAll('parchment')
+  kbCraftWithRatio('manuscript', 2)
+  kbCraftWithRatio('blueprint', 1)
+  kbCraftWithRatio('compenmdium', 0.5)
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
+}
+
+// ########################################################################
+
 function kittyBotGo () {
   kbBuildItems('Workshop', 3)
   kbBuildItems('Science', 2)
   kbBuildItems('Bonfire', 0)
+  kbBuildItems('Religion', 5)
+  kbSendCaravans()
 
-  // Craft Wood to Beams
-  if (kbUse('wood') && ((kbWoodResource.maxValue - (kbWoodResource.perTickCached * 6)) <= kbWoodResource.value) && (kbWoodResource.perTickCached > 0)) {
-    gamePage.craft('beam', Math.round(0.5 + kbWoodResource.perTickCached * 5 / 175))
-  }
-
-  // Craft Catnip To Wood (doing this after crafting wood to beams because reasons)
-  if (kbUse('catnip') && ((kbCatnipResource.maxValue - (kbCatnipResource.perTickCached * 6)) <= kbCatnipResource.value) && (kbCatnipResource.perTickCached > 0) && (kbWoodResource.value < kbWoodResource.maxValue)) {
-    gamePage.craft('wood', Math.round(0.5 + kbCatnipResource.perTickCached * 5 / 100))
-  }
-
-  // Craft Minerals to Slabs
-  if (kbUse('minerals') && ((kbMineralsResource.maxValue - (kbMineralsResource.perTickCached * 6)) <= kbMineralsResource.value) && (kbMineralsResource.perTickCached > 0)) {
-    gamePage.craft('slab', Math.round(0.5 + kbMineralsResource.perTickCached * 5 / 175))
-  }
-
-  // Craft Iron to Plates
-  if (kbUse('iron') && ((kbIronResource.maxValue - (kbIronResource.perTickCached * 6)) <= kbIronResource.value) && (kbIronResource.perTickCached > 0)) {
-    gamePage.craft('plate', Math.round(0.5 + kbIronResource.perTickCached * 5 / 125))
-  }
-
-  // Craft Oil to Kerosene
-  if (kbUse('oil') && ((kbOilResource.maxValue - (kbOilResource.perTickCached * 6)) <= kbOilResource.value) && (kbOilResource.perTickCached > 0)) {
-    gamePage.craft('kerosene', Math.round(0.5 + kbOilResource.perTickCached * 5 / 7500))
-  }
-
-  // Craft Uranium to Thorium
-  if (kbUse('uranium') && ((kbUraniumResource.maxValue - (kbUraniumResource.perTickCached * 6)) <= kbUraniumResource.value) && (kbUraniumResource.perTickCached > 0)) {
-    gamePage.craft('Thorium', Math.round(0.5 + kbUraniumResource.perTickCached * 5 / 125))
-  }
-
-  // Craft ALL Coal to Steel
-  if (kbUse('coal') && (kbCoalResource.value >= 100)) { gamePage.craftAll('steel') }
-
-  // Craft Steel to Gear (Oil Well needs smallest ratio, 2 steel to 1 gear, so let's maintain that ratio)
-  if (kbUse('steel') && (kbGearResource.value < kbSteelResource.value / 2)) { gamePage.craft('gear', 1) }
-
-  // Craft ALL furs to parchment
-  if (gamePage.resPool.get('furs').value >= 175) { gamePage.craftAll('parchment') }
-
-  // Craft parchment to manuscript, maintain 1 to 1 ratio
-  if (kbUse('parchment') && kbUse('culture') && ((kbCultureResource.maxValue - (kbCultureResource.perTickCached * 6)) <= kbCultureResource.value) && (kbManuscriptResource.value < kbParchmentResource.value)) {
-    gamePage.craft('manuscript', Math.round(0.5 + kbCultureResource.perTickCached * 5 / 400))
-  }
-
-  // Craft manuscript to compendium, maintain 1 to 1 ratio
-  if (kbUse('manuscript') && kbUse('science') && ((kbScienceResource.maxValue - (kbScienceResource.perTickCached * 6)) <= kbScienceResource.value) && (kbCompendiumResource.value < kbManuscriptResource.value)) {
-    gamePage.craft('compedium', Math.round(0.5 + kbScienceResource.perTickCached * 5 / 10000))
-  }
-
-  // Craft compendium to blueprint, maintain 1 to 1 ratio, unless Genetics hasn't been researched yet but is checked
-  let kbGeneticsDiff = 0
-  if (!(gamePage.science.metaCache.genetics.researched)) { kbGeneticsDiff = 1500 }
-  if (kbUse('compendium') && kbUse('science') && ((kbScienceResource.maxValue - (kbScienceResource.perTickCached * 6)) <= kbScienceResource.value) && (kbBlueprintResource.value < (kbCompendiumResource.value - kbGeneticsDiff))) {
-    gamePage.craft('blueprint', Math.round(0.5 + kbScienceResource.perTickCached * 5 / 25000))
-  }
+  kbCraft()
 
   // Use ALL Catpower for hunt
   if (kbUse('catpower') && ((kbCatpowerResource.maxValue - (kbCatpowerResource.perTickCached * 6)) <= kbCatpowerResource.value)) { console.log('hunting'); gamePage.resPool.village.huntAll() }
@@ -330,7 +337,7 @@ function kittyBotGo () {
   kbPromoteKittens()
   kbEnsureLeaderExists()
   kbBuildEmbassies()
-
+  kbPraiseTheSun()
   kbLimitConsumer()
 }
 
@@ -415,11 +422,38 @@ function kbUIAccess () {
 '<input id="kb_manage" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Manage workers<br />' +
 '<input id="kb_ensure_leader" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Ensure Leader<br />' +
 '<input id="kb_build_embassies" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Build embassies<br />' +
+'<input id="kb_praise" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Praise the sun!<br />' +
+'<label for="kb_tradeRoutes">Send caravans to:</label>' +
+'<select name="kb_tradeRoutes" id="kb_trade_routes">' +
+'<option value="kb_trade_none">None</option>'
+
+  const origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Trade'
+  gamePage.render()
+  gamePage.tabs[4].racePanels.forEach(function (racePanel) {
+    tempString += '<option value="kb_trade_' + racePanel.race.name + '">' + racePanel.race.title + '</option>'
+  })
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
+
+  tempString +=
+'</select>' +
+'</div>' +
+'<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+'<p><u>Spend faith on:</u></p>' +
+'<div id="kb_faith_research" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+'<p>Religion research</p>' +
+''
+  gamePage.tabs[5].rUpgradeButtons.forEach(function (faithResearch) {
+    tempString += '<div id="kb_faithDiv_' + faithResearch.id + '"><input id="kb_faithInput_' + faithResearch.id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />' + faithResearch.model.name + '</div>'
+  })
+
+  tempString +=
+'</div>' +
 '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
 '<p><u>Spend Resources on:</u></p>' +
 '<div id="kb_buildings" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-'<p>Buildings & Space:<br />(Space not added yet)</p>' +
-''
+'<p>Buildings & Space:<br />(Space not added yet)</p>'
 
   for (let i = 0; i < kbBuildingNames.length; i++) {
     tempString += '<div id="kb_bldDiv_' + kbBuildingNames[i] + '">' +
@@ -480,8 +514,8 @@ function kbUIAccess () {
 '<input id="kb_use_culture1" type="radio" name="kb_use_culture" value="1" style="vertical-align: sub;" />any' +
 '<input id="kb_use_culture2" type="radio" name="kb_use_culture" value="2" style="vertical-align: sub;" checked />max | Culture<br />' +
 '<input id="kb_use_faith0" type="radio" name="kb_use_faith" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_faith1" type="radio" name="kb_use_faith" value="1" style="vertical-align: sub;" checked />any' +
-'<input id="kb_use_faith2" type="radio" name="kb_use_faith" value="2" style="vertical-align: sub;" />max | Faith<br />' +
+'<input id="kb_use_faith1" type="radio" name="kb_use_faith" value="1" style="vertical-align: sub;" />any' +
+'<input id="kb_use_faith2" type="radio" name="kb_use_faith" value="2" style="vertical-align: sub;" checked />max | Faith<br />' +
 // kittens
 '<input id="kb_use_antimatter0" type="radio" name="kb_use_antimatter" value="0" style="vertical-align: sub;" />never' +
 '<input id="kb_use_antimatter1" type="radio" name="kb_use_antimatter" value="1" style="vertical-align: sub;" checked />any' +
