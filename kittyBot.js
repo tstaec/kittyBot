@@ -8,17 +8,17 @@
 // ##############################################################################
 
 // todo:
-// -Do we really nned to switch active tab?
-// - get rid of the resource variables
+// - Do we really need to switch active tab?
 // - fix ui
 // - fill ui from gamePage not list of names
 // - Check ui when building shit
+// - consider craft bonus while crafting
+// - add all the craftable resources
 
 // Define global variables to satisfy ESLint
 /* global gamePage */
 
 // configurable variables
-const kbCraftRatio = 2
 const kbRunInterval = 5000
 const kbTicksPerSecond = 5
 
@@ -253,17 +253,30 @@ function kbCheckRatio (materials, targetResourceName, ratio) {
     const targetResource = gamePage.resPool.get(targetResourceName)
     const actualRatio = resource.value / targetResource.value
     // Only craft items if we would reach max storage in the next tick
-    return resource.perTickCached > 0 &&
-      actualRatio > ratio &&
-      resource.maxValue - (resource.perTickCached * kbTicksPerSecond * (kbRunInterval / 1000)) <= resource.value
+    return (!isFinite(actualRatio) || actualRatio > ratio) &&
+      (resource.craftable || (resource.maxValue - (resource.perTickCached * kbTicksPerSecond * (kbRunInterval / 1000)) <= resource.value))
   })
 }
 
-function kbCalculateCraftAmount (materials) {
-  return Math.min(materials.map(function (material) {
+function kbCalculateCraftAmount (materials, ratio, targetResourceName) {
+  return Math.min(...materials.map(function (material) {
     const resource = gamePage.resPool.get(material.name)
+    if (resource.craftable && resource.name !== 'wood') { // wood is craftable because it can be transformed from catnip but should not betreated as such
+      return kbCalculateCraftAmountForCraftable(resource, material, ratio, targetResourceName)
+    }
     return Math.ceil(resource.perTickCached * kbTicksPerSecond * (kbRunInterval / 1000) / material.val)
   }))
+}
+
+function kbCalculateCraftAmountForCraftable (resource, material, ratio, targetResourceName) {
+  const targetResource = gamePage.resPool.get(targetResourceName)
+  // This is the magic. The formula calculates the resources needed to be used to achieve the desired ratio.
+  // Base formula: (1/r)*(y-x)=v+(x/c). r = ratio, y = current amount of base resources, x = base resources needed to be crafted to achieve ratio,
+  // v = existing target resources, c = cost to craft resources. Solved by wolfram alpha to: x = (c*y - c*r*v)/(c+r)
+  const resourcesNeeded = Math.floor((material.val * resource.value - material.val * ratio * targetResource.value) / (material.val + ratio))
+  console.log('magic ' + material.name + ' ' + resourcesNeeded + ':' + Math.floor(resourcesNeeded / material.val))
+  console.log(material.val + ' : ' + ratio + ' + ' + resource.value + ' : ' + targetResource.value)
+  return Math.floor(resourcesNeeded / material.val)
 }
 
 // ########################################################################
@@ -271,7 +284,7 @@ function kbCalculateCraftAmount (materials) {
 function kbCraftWithRatio (resourceName, ratio) {
   const button = gamePage.tabs[3].craftBtns.find(btn => btn.craftName === resourceName && btn.model.enabled && btn.model.visible)
   if (typeof (button) !== 'undefined' && kbCheckPrices(button.model.prices) && kbCheckRatio(button.model.prices, button.craftName, ratio)) {
-    gamePage.craft(button.craftName, kbCalculateCraftAmount(button.model.prices))
+    gamePage.craft(button.craftName, kbCalculateCraftAmount(button.model.prices, ratio, resourceName))
   }
 }
 
@@ -286,18 +299,19 @@ function kbCraft (resourceName) {
   const origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Workshop'
   gamePage.render()
-  kbCraftWithRatio('beam', Number.MAX_VALUE)
-  kbCraftWithRatio('scaffold', 0.2)
-  kbCraftWithRatio('steel', Number.MAX_VALUE)
-  kbCraftWithRatio('slab', Number.MAX_VALUE)
-  kbCraftWithRatio('plate', Number.MAX_VALUE)
-  kbCraftWithRatio('kerosene', Number.MAX_VALUE)
+  kbCraftWithRatio('beam', Number.MIN_VALUE)
+  kbCraftWithRatio('scaffold', 2)
+  kbCraftWithRatio('steel', Number.MIN_VALUE)
+  kbCraftWithRatio('slab', Number.MIN_VALUE)
+  kbCraftWithRatio('plate', Number.MIN_VALUE)
+  kbCraftWithRatio('kerosene', Number.MIN_VALUE)
   kbCraftWithRatio('thorium', 10)
   kbCraftWithRatio('gear', 2)
   kbCraftAll('parchment')
   kbCraftWithRatio('manuscript', 2)
+  kbCraftWithRatio('compedium', 1)// [sic]
   kbCraftWithRatio('blueprint', 1)
-  kbCraftWithRatio('compenmdium', 0.5)
+  kbCraftWithRatio('megalith', 0.01)
   gamePage.ui.activeTabId = origTab
   gamePage.render()
 }
@@ -314,6 +328,7 @@ function kittyBotGo () {
   kbCraft()
 
   // Use ALL Catpower for hunt
+  const kbCatpowerResource = gamePage.resPool.get('manpower')
   if (kbUse('catpower') && ((kbCatpowerResource.maxValue - (kbCatpowerResource.perTickCached * 6)) <= kbCatpowerResource.value)) { console.log('hunting'); gamePage.resPool.village.huntAll() }
 
   // Auto Observe Astronomical Events
@@ -328,12 +343,14 @@ function kittyBotGo () {
 
   // CHEAT: Gather Enough
   if (document.getElementById('kb_gatherEnough').checked) {
+    const kbCatnipResource = gamePage.resPool.get('catnip')
     if (kbCatnipResource.value < ((gamePage.resPool.get('kittens').maxValue + 1) * 4.25)) { kbCatnipResource.value = ((gamePage.resPool.get('kittens').maxValue + 1) * 4.25) }
     if (kbCatnipResource.perTickCached < 0) { kbCatnipResource.value -= (kbCatnipResource.perTickCached * 5) }
   }
 
   // Gather 1 Catnip
   gamePage.bld.gatherCatnip()
+
   kbPromoteKittens()
   kbEnsureLeaderExists()
   kbBuildEmbassies()
