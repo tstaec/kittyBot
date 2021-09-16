@@ -105,7 +105,7 @@ function kbBuildItems (activeTabName, tabIndex) {
       if (kbCheckPrices(btn.model.prices)) {
         btn.controller.buyItem(btn.model, {}, function (result) { if (result) { console.log('built: ' + btn.model.name); btn.update() } })
       }
-    } catch (err) { console.log('err:' + err) }
+    } catch (err) { console.log('err(' + btn.model.name + '):' + err) }
   })
   gamePage.ui.activeTabId = origTab
   gamePage.render()
@@ -201,7 +201,7 @@ function kbBuildEmbassies () {
       if (typeof (embassyButton) !== 'undefined' && kbUse('culture')) {
         try {
           embassyButton.controller.buyItem(embassyButton.model, {}, function (result) { if (result) { console.log('built embassy: ' + embassyButton.race.name); embassyButton.update() } })
-        } catch (err) { console.log('err:' + err) }
+        } catch (err) { console.log('err(' + embassyButton.model.name + '):' + err) }
       }
     }
   }
@@ -284,7 +284,9 @@ function kbCalculateCraftAmountForCraftable (resource, material, ratio, targetRe
 function kbCraftWithRatio (resourceName, ratio) {
   const button = gamePage.tabs[3].craftBtns.find(btn => btn.craftName === resourceName && btn.model.enabled && btn.model.visible)
   if (typeof (button) !== 'undefined' && kbCheckPrices(button.model.prices) && kbCheckRatio(button.model.prices, button.craftName, ratio)) {
-    gamePage.craft(button.craftName, kbCalculateCraftAmount(button.model.prices, ratio, resourceName))
+    try {
+      gamePage.craft(button.craftName, kbCalculateCraftAmount(button.model.prices, ratio, resourceName))
+    } catch (err) { console.log('err(' + button.model.name + '):' + err) }
   }
 }
 
