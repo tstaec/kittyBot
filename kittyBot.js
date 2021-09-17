@@ -231,7 +231,7 @@ function kbUse (resourceName) {
   } else {
     const rp = gamePage.resPool.get(resourceName)
     const useMaxBox = kbUseArray.find(e => e.id === 'kb_use_' + resourceName + '2')
-    // Check if only maxed resources should be used and resources are atmax level
+    // Check if only maxed resources should be used and resources are at max level
     // Crafted resources dont have a max level and as such are missing the checkbox with '2' suffix
     if (typeof (useMaxBox) !== 'undefined' && useMaxBox.checked && rp.perTickCached >= 0) {
       return (rp.maxValue <= ((rp.perTickCached * 11) + rp.value))
@@ -259,6 +259,7 @@ function kbCheckRatio (materials, targetResourceName, ratio) {
 }
 
 function kbCalculateCraftAmount (materials, ratio, targetResourceName) {
+  // console.log(targetResourceName)
   return Math.min(...materials.map(function (material) {
     const resource = gamePage.resPool.get(material.name)
     if (resource.craftable && resource.name !== 'wood') { // wood is craftable because it can be transformed from catnip but should not betreated as such
@@ -274,8 +275,8 @@ function kbCalculateCraftAmountForCraftable (resource, material, ratio, targetRe
   // Base formula: (1/r)*(y-x)=v+(x/c). r = ratio, y = current amount of base resources, x = base resources needed to be crafted to achieve ratio,
   // v = existing target resources, c = cost to craft resources. Solved by wolfram alpha to: x = (c*y - c*r*v)/(c+r)
   const resourcesNeeded = Math.floor((material.val * resource.value - material.val * ratio * targetResource.value) / (material.val + ratio))
-  console.log('magic ' + material.name + ' ' + resourcesNeeded + ':' + Math.floor(resourcesNeeded / material.val))
-  console.log(material.val + ' : ' + ratio + ' + ' + resource.value + ' : ' + targetResource.value)
+  // console.log('magic ' + material.name + ' ' + resourcesNeeded + ':' + Math.floor(resourcesNeeded / material.val))
+  // console.log(material.val + ' : ' + ratio + ' + ' + resource.value + ' : ' + targetResource.value)
   return Math.floor(resourcesNeeded / material.val)
 }
 
@@ -313,7 +314,7 @@ function kbCraft (resourceName) {
   kbCraftWithRatio('manuscript', 2)
   kbCraftWithRatio('compedium', 1)// [sic]
   kbCraftWithRatio('blueprint', 1)
-  kbCraftWithRatio('megalith', 0.01)
+  kbCraftWithRatio('megalith', 10)
   gamePage.ui.activeTabId = origTab
   gamePage.render()
 }
@@ -323,11 +324,9 @@ function kbCraft (resourceName) {
 function kittyBotGo () {
   kbBuildItems('Workshop', 3)
   kbBuildItems('Science', 2)
-  kbBuildItems('Bonfire', 0)
   kbBuildItems('Religion', 5)
+  kbBuildItems('Bonfire', 0)
   kbSendCaravans()
-
-  kbCraft()
 
   // Use ALL Catpower for hunt
   const kbCatpowerResource = gamePage.resPool.get('manpower')
@@ -347,12 +346,13 @@ function kittyBotGo () {
   if (document.getElementById('kb_gatherEnough').checked) {
     const kbCatnipResource = gamePage.resPool.get('catnip')
     if (kbCatnipResource.value < ((gamePage.resPool.get('kittens').maxValue + 1) * 4.25)) { kbCatnipResource.value = ((gamePage.resPool.get('kittens').maxValue + 1) * 4.25) }
-    if (kbCatnipResource.perTickCached < 0) { kbCatnipResource.value -= (kbCatnipResource.perTickCached * 5) }
+    if (kbCatnipResource.perTickCached < 0) { kbCatnipResource.value -= (kbCatnipResource.perTickCached * kbTicksPerSecond * (kbRunInterval / 1000)) }
   }
 
   // Gather 1 Catnip
   gamePage.bld.gatherCatnip()
 
+  kbCraft()
   kbPromoteKittens()
   kbEnsureLeaderExists()
   kbBuildEmbassies()
@@ -390,25 +390,41 @@ function kbLimitConsumer () {
   const origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Bonfire'
   gamePage.render()
+
   const limit = 0.5 // Only this percentage of the base recources are permitted to be consumed by the consumer.
-  const woodPerTick = gamePage.resPool.resources[1].perTickCached
-  const mineralsPerTick = gamePage.resPool.resources[2].perTickCached
+  const woodPerTick = gamePage.resPool.get('wood').perTickCached
+  const mineralsPerTick = gamePage.resPool.get('minerals').perTickCached
   const smelter = gamePage.tabs[0].children.find(c => typeof (c.model.metadata) !== 'undefined' && c.model.metadata.name === 'smelter')
   if (typeof (smelter) !== 'undefined') {
     const smelterWoodPerTickCon = smelter.model.metadata.effects.woodPerTickCon
     const smelterMineralsPerTickCon = smelter.model.metadata.effects.mineralsPerTickCon
-    let maxSmelterCount = Math.min(Math.floor((woodPerTick * limit) / Math.abs(smelterWoodPerTickCon)), Math.floor((mineralsPerTick * 0.5) / Math.abs(smelterMineralsPerTickCon)))
-
-    if (maxSmelterCount < 0) maxSmelterCount = 0
-    // Check if the calculated smelter count is bigger than the possible smelter count.
-    if (maxSmelterCount > smelter.model.metadata.val) maxSmelterCount = smelter.model.metadata.val
-
-    smelter.model.on = maxSmelterCount
-    smelter.model.metadata.on = maxSmelterCount
-    smelter.update()
+    const maxSmelterCount = Math.min(Math.floor((woodPerTick * limit) / Math.abs(smelterWoodPerTickCon)), Math.floor((mineralsPerTick * limit) / Math.abs(smelterMineralsPerTickCon)))
+    kbSetConsumer(smelter, maxSmelterCount)
   }
+
+  const goldPerTick = gamePage.resPool.get('gold').perTickCached
+  const catpowerPerTick = gamePage.resPool.get('manpower').perTickCached
+  const mint = gamePage.tabs[0].children.find(c => typeof (c.model.metadata) !== 'undefined' && c.model.metadata.name === 'mint')
+  if (typeof (mint) !== 'undefined') {
+    const mintGoldPerTickCon = mint.model.metadata.effects.goldPerTickCon
+    const mintCatpowerPerTickCon = mint.model.metadata.effects.manpowerPerTickCon
+    const maxMintCount = Math.min(Math.floor((goldPerTick * limit) / Math.abs(mintGoldPerTickCon)), Math.floor((catpowerPerTick * limit) / Math.abs(mintCatpowerPerTickCon)))
+    kbSetConsumer(mint, maxMintCount)
+  }
+
   gamePage.ui.activeTabId = origTab
   gamePage.render()
+}
+
+function kbSetConsumer (building, maxConsumerCount) {
+  if (maxConsumerCount < 0) maxConsumerCount = 0
+  // Check if the calculated smelter count is bigger than the possible smelter count.
+  if (maxConsumerCount > building.model.metadata.val) maxConsumerCount = building.model.metadata.val
+  if (maxConsumerCount !== building.model.on) {
+    building.model.on = maxConsumerCount
+    building.model.metadata.on = maxConsumerCount
+    building.update()
+  }
 }
 
 // ########################################################################
@@ -446,7 +462,7 @@ function kbUIAccess () {
 '<select name="kb_tradeRoutes" id="kb_trade_routes">' +
 '<option value="kb_trade_none">None</option>'
 
-  const origTab = gamePage.ui.activeTabId
+  let origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Trade'
   gamePage.render()
   gamePage.tabs[4].racePanels.forEach(function (racePanel) {
@@ -463,9 +479,14 @@ function kbUIAccess () {
 '<div id="kb_faith_research" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
 '<p>Religion research</p>' +
 ''
+  origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Religion'
+  gamePage.render()
   gamePage.tabs[5].rUpgradeButtons.forEach(function (faithResearch) {
     tempString += '<div id="kb_faithDiv_' + faithResearch.id + '"><input id="kb_faithInput_' + faithResearch.id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />' + faithResearch.model.name + '</div>'
   })
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
 
   tempString +=
 '</div>' +
@@ -475,10 +496,7 @@ function kbUIAccess () {
 '<p>Buildings & Space:<br />(Space not added yet)</p>'
 
   for (let i = 0; i < kbBuildingNames.length; i++) {
-    tempString += '<div id="kb_bldDiv_' + kbBuildingNames[i] + '">' +
-             '<span style="border-style: solid; border-width: 1px;" onClick="kb_bldUp(\'' + kbBuildingNames[i] + '\');">up</span> | ' +
-             '<span style="border-style: solid; border-width: 1px;" onClick="kb_bldDn(\'' + kbBuildingNames[i] + '\');">dn</span> &nbsp; ' +
-             '<input id="kb_bldInput_' + kbBuildingNames[i] + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />Building: ' + kbBuildingLabels[i] + '</div>'
+    tempString += '<div id="kb_bldDiv_' + kbBuildingNames[i] + '"><input id="kb_bldInput_' + kbBuildingNames[i] + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />Building: ' + kbBuildingLabels[i] + '</div>'
   }
 
   tempString +=
@@ -560,7 +578,7 @@ function kbUIAccess () {
 '<input id="kb_use_kerosene1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Kerosene<br />' +
 '<input id="kb_use_parchment1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Parchment<br />' +
 '<input id="kb_use_manuscript1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Manuscript<br />' +
-'<input id="kb_use_compendium1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Compendium<br />' +
+'<input id="kb_use_compedium1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Compendium<br />' +
 '<input id="kb_use_blueprint1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Blueprint<br />' +
 '<input id="kb_use_thorium1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Thorium<br />' +
 '<input id="kb_use_megalith1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Megalith<br />' +
@@ -571,6 +589,7 @@ function kbUIAccess () {
 '<input id="kb_use_timeCrystal1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Time Crystal<br />' +
 '<input id="kb_use_relic1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Relic<br />' +
 '<input id="kb_use_void1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Void<br />' +
+'<input id="kb_use_ivory1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Ivory<br />' +
 '</div>' +
 '<p style="text-align: center;"><u>Cheats and Other Stuff</u></p>' +
 '<div style="border-style: solid; border-width: 1px; padding: 5px;">' +
