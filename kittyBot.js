@@ -24,14 +24,13 @@ const kbTicksPerSecond = 5
 // ########################################################################
 
 let kittyBotInterval = 0
-let kbUseArray = []
+let kbConfig = []
 
 // eslint-disable-next-line no-unused-vars
 function kittyBotToggle () {
-  if (document.getElementById('kittyBotRunningCheckbox').checked) {
+  clearInterval(kittyBotInterval)
+  if (kbGetConfig('kb_use_bot', false) === 'checked') {
     kittyBotInterval = setInterval(kittyBotGo, kbRunInterval)
-  } else {
-    clearInterval(kittyBotInterval)
   }
 }
 
@@ -104,7 +103,7 @@ function kbPraiseTheSun () {
   gamePage.ui.activeTabId = 'Religion'
   gamePage.render()
   // Only spend faith if there are no active religion research options
-  const activeResearch = gamePage.tabs[5].zgUpgradeButtons.some(b => b.model.enabled)
+  const activeResearch = gamePage.tabs[5].zgUpgradeButtons.some(b => b.model.enabled && document.getElementById('kb_input_' + b.model.metadata.name).checked)
   if (!activeResearch && document.getElementById('kb_praise').checked && kbUse('faith')) {
     const btn = gamePage.tabs[5].praiseBtn
     if (btn.model.visible && btn.model.enabled) {
@@ -183,25 +182,27 @@ function kbBuildEmbassies () {
 
 // ########################################################################
 
-function kbReloadUseConfiguration () {
-  kbUseArray = Array.from(document.querySelectorAll('*[id^="kb_use_"]')).map(element => {
+function kbSaveConfiguration () {
+  kbConfig = Array.from(document.querySelectorAll('*[id^="kb_"]')).map(element => {
     const obj = {}
     obj.id = element.id
     obj.checked = element.checked
     return obj
   })
+  localStorage.setItem('kittenBot', JSON.stringify(kbConfig))
 }
+
 // ########################################################################
 
 function kbUse (resourceName) {
   // Ignore resources that have only a single purpose and thus can not be missused.
   if (resourceName === 'furs') return true
   // Check if any value of resource should be used
-  if (kbUseArray.find(c => c.id === 'kb_use_' + resourceName + '1').checked) {
+  if (kbConfig.find(c => c.id === 'kb_use_' + resourceName + '1').checked) {
     return true
   } else {
     const rp = gamePage.resPool.get(resourceName)
-    const useMaxBox = kbUseArray.find(e => e.id === 'kb_use_' + resourceName + '2')
+    const useMaxBox = kbConfig.find(e => e.id === 'kb_use_' + resourceName + '2')
     // Check if only maxed resources should be used and resources are at max level
     // Crafted resources dont have a max level and as such are missing the checkbox with '2' suffix
     if (typeof (useMaxBox) !== 'undefined' && useMaxBox.checked && rp.perTickCached >= 0) {
@@ -290,6 +291,8 @@ function kbCraft (resourceName) {
   kbCraftWithRatio('megalith', 10)
   kbCraftWithRatio('ship', Number.MIN_VALUE)
   kbCraftWithRatio('alloy', 100)
+  kbCraftWithRatio('eludium', 100)
+  kbCraftWithRatio('thorium', Number.MIN_VALUE)
   // kbCraftWithRatio('tanker', 100) // not worth it currently
   gamePage.ui.activeTabId = origTab
   gamePage.render()
@@ -308,6 +311,7 @@ function kbSacrificeUnicorns () {
   gamePage.ui.activeTabId = origTab
   gamePage.render()
 }
+
 // ########################################################################
 
 function kittyBotGo () {
@@ -316,9 +320,10 @@ function kittyBotGo () {
   kbBuildItems('Religion', 5)
   kbBuildItems('Bonfire', 0)
   kbSendCaravans()
+
   // Use ALL Catpower for hunt
   const kbCatpowerResource = gamePage.resPool.get('manpower')
-  if (kbUse('catpower') && ((kbCatpowerResource.maxValue - (kbCatpowerResource.perTickCached * 6)) <= kbCatpowerResource.value)) { console.log('hunting'); gamePage.resPool.village.huntAll() }
+  if (kbUse('manpower') && ((kbCatpowerResource.maxValue - (kbCatpowerResource.perTickCached * 6)) <= kbCatpowerResource.value)) { console.log('hunting'); gamePage.resPool.village.huntAll() }
 
   // Auto Observe Astronomical Events
   if (document.getElementById('kb_observeEvents').checked) {
@@ -368,10 +373,11 @@ function kbToggleUI () {
   botDiv.style.backgroundColor = rgb2hex(window.getComputedStyle(document.body, null).getPropertyValue('background-color'))
   if (botDiv.style.display === 'none') {
     botDiv.style.display = 'inline'
+    kbCreatUI()
   } else {
     botDiv.style.display = 'none'
+    kbSaveConfiguration()
   }
-  kbReloadUseConfiguration()
 }
 
 // ########################################################################
@@ -423,7 +429,6 @@ function kbUIAccess () {
   let tempString = ''
   const dPanel = document.getElementById('devPanel').parentNode
   const kittyBotUIaccess = document.createElement('span')
-  const kittyBotUI = document.createElement('div')
 
   dPanel.insertBefore(kittyBotUIaccess, document.getElementById('devPanel'))
   tempString +=
@@ -432,23 +437,51 @@ function kbUIAccess () {
    '<span style="font-size: small;"> ver 0.4 by LoyLT & tstaec</span>'
   kittyBotUIaccess.innerHTML = tempString
 
-  //    kittyBotUI.className = 'dialog help';
+  kbCreatUI()
+  kittyBotToggle()
+}
 
+function kbGetConfig (key, defaultValue) {
+  if (typeof (kbConfig) === 'undefined' || kbConfig === null) {
+    kbConfig = []
+  }
+  const value = kbConfig.find(k => k.id === key)
+  let checked = false
+  if (typeof (value) === 'undefined') {
+    checked = defaultValue
+  } else {
+    checked = value.checked
+  }
+
+  if (checked) {
+    return 'checked'
+  }
+  return ''
+}
+
+function kbCreatUI () {
+  let tempString = ''
+  const kittyBotUI = document.createElement('div')
+  const existingUI = document.getElementById('kittyBotDiv')
+  kbConfig = JSON.parse(localStorage.getItem('kittenBot'))
   kittyBotUI.id = 'kittyBotDiv'
-  kittyBotUI.style.cssText = 'display: none; overflow: scroll; position: absolute; left: 400px; top: 75px; width: 850px; height: 90%; border-style: solid; background-color: #000000;'
+  if (typeof (existingUI) !== 'undefined' && existingUI !== null) {
+    existingUI.remove()
+  }
+  kittyBotUI.style.cssText = 'display: inline; overflow: scroll; position: absolute; left: 400px; top: 75px; width: 850px; height: 90%; border-style: solid; background-color: #000000;'
   document.getElementById('gamePageContainer').appendChild(kittyBotUI)
 
   tempString = ''
   tempString +=
-'<input type="checkbox" id="kittyBotRunningCheckbox" style="display: inline-block;" onClick="kittyBotToggle();" />kittyBot is running if this is checked.<br />' +
+'<input type="checkbox" id="kb_use_bot" style="display: inline-block;" onClick="kittyBotToggle();" ' + kbGetConfig('kb_use_bot', false) + '/>kittyBot is running if this is checked.<br />' +
 '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
 '<p>Actions:</p>' +
-'<input id="kb_promote" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Promote<br />' +
-'<input id="kb_manage" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Manage workers<br />' +
-'<input id="kb_ensure_leader" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Ensure Leader<br />' +
-'<input id="kb_build_embassies" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Build embassies<br />' +
-'<input id="kb_praise" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Praise the sun!<br />' +
-'<input id="kb_sacrifice_unicorns" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Sacrifice unicorns<br />' +
+'<input id="kb_promote" type="checkbox" style="vertical-align: sub; display: inline-block;"  ' + kbGetConfig('kb_promote', true) + ' />Promote<br />' +
+'<input id="kb_manage" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_manage', true) + ' />Manage workers<br />' +
+'<input id="kb_ensure_leader" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_ensure_leader', true) + ' />Ensure Leader<br />' +
+'<input id="kb_build_embassies" type="checkbox" style="vertical-align: sub; display: inline-block;"  ' + kbGetConfig('kb_build_embassies', true) + ' />Build embassies<br />' +
+'<input id="kb_praise" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_praise', true) + ' />Praise the sun!<br />' +
+'<input id="kb_sacrifice_unicorns" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_sacrifice_unicorns', true) + ' />Sacrifice unicorns<br />' +
 '<label for="kb_tradeRoutes">Send caravans to:</label>' +
 '<select name="kb_tradeRoutes" id="kb_trade_routes">' +
 '<option value="kb_trade_none">None</option>'
@@ -474,7 +507,8 @@ function kbUIAccess () {
   gamePage.ui.activeTabId = 'Religion'
   gamePage.render()
   gamePage.tabs[5].rUpgradeButtons.forEach(function (faithResearch) {
-    tempString += '<div id="kb_faithDiv_' + faithResearch.id + '"><input id="kb_input_' + faithResearch.id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />' + faithResearch.model.name + '</div>'
+    const id = 'kb_input_' + faithResearch.id
+    tempString += '<div id="kb_faithDiv_' + faithResearch.id + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />' + faithResearch.model.name + '</div>'
   })
   gamePage.ui.activeTabId = origTab
   gamePage.render()
@@ -490,7 +524,8 @@ function kbUIAccess () {
   gamePage.ui.activeTabId = 'Religion'
   gamePage.render()
   gamePage.tabs[5].zgUpgradeButtons.forEach(function (unicornUpgrades) {
-    tempString += '<div id="kb_unicornDiv_' + unicornUpgrades.id + '"><input id="kb_input_' + unicornUpgrades.id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />' + unicornUpgrades.model.name + '</div>'
+    const id = 'kb_input_' + unicornUpgrades.id
+    tempString += '<div id="kb_unicornDiv_' + unicornUpgrades.id + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />' + unicornUpgrades.model.name + '</div>'
   })
   gamePage.ui.activeTabId = origTab
   gamePage.render()
@@ -506,7 +541,8 @@ function kbUIAccess () {
   gamePage.ui.activeTabId = 'Bonfire'
   gamePage.render()
   gamePage.tabs[0].children.filter(b => typeof (b.model.metadata) !== 'undefined').forEach(function (buildingButton) {
-    tempString += '<div id="kb_bldDiv_' + buildingButton.model.metadata.name + '"><input id="kb_input_' + buildingButton.model.metadata.name + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />Building: ' + buildingButton.opts.name + '</div>'
+    const id = 'kb_input_' + buildingButton.model.metadata.name
+    tempString += '<div id="kb_bldDiv_' + buildingButton.model.metadata.name + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />Building: ' + buildingButton.opts.name + '</div>'
   })
   gamePage.ui.activeTabId = origTab
   gamePage.render()
@@ -520,7 +556,8 @@ function kbUIAccess () {
   gamePage.render()
   gamePage.tabs[2].buttons.forEach(function (scienceButton) {
     if ((!scienceButton.model.metadata.researched) && scienceButton.id !== 'brewery') {
-      tempString += '<div id="kb_sciDiv_' + scienceButton.id + '"><input id="kb_input_' + scienceButton.id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />' + scienceButton.model.name + '</div>'
+      const id = 'kb_input_' + scienceButton.id
+      tempString += '<div id="kb_sciDiv_' + scienceButton.id + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />' + scienceButton.model.name + '</div>'
     }
   })
   gamePage.ui.activeTabId = origTab
@@ -530,14 +567,15 @@ function kbUIAccess () {
 '</div>' +
 '</div>' +
 '<div id="kb_faith_research" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-'<p>Workshop upgrades</p>' +
-''
+'<p>Workshop upgrades</p>'
+
   origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Workshop'
   gamePage.render()
   gamePage.tabs[3].buttons.forEach(function (upgrade) {
     if (!upgrade.model.metadata.researched) {
-      tempString += '<div id="kb_workshopDiv_' + upgrade.model.metadata.name + '"><input id="kb_input_' + upgrade.model.metadata.name + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />' + upgrade.model.name + '</div>'
+      const id = 'kb_input_' + upgrade.model.metadata.name
+      tempString += '<div id="kb_workshopDiv_' + upgrade.model.metadata.name + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />' + upgrade.model.name + '</div>'
     }
   })
   gamePage.ui.activeTabId = origTab
@@ -548,81 +586,26 @@ function kbUIAccess () {
 '</div>' +
 '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
 '<p><u>Use Resources to build or craft</u></p>' +
-'<div style="border-style: solid; border-width: 1px; padding: 5px;">' +
-'<input id="kb_use_catnip0" type="radio" name="kb_use_catnip" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_catnip1" type="radio" name="kb_use_catnip" value="1" style="vertical-align: sub;" />any' +
-'<input id="kb_use_catnip2" type="radio" name="kb_use_catnip" value="2" style="vertical-align: sub;" checked />max | Catnip<br />' +
-'<input id="kb_use_wood0" type="radio" name="kb_use_wood" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_wood1" type="radio" name="kb_use_wood" value="1" style="vertical-align: sub;" checked />any' +
-'<input id="kb_use_wood2" type="radio" name="kb_use_wood" value="2" style="vertical-align: sub;" />max | Wood<br />' +
-'<input id="kb_use_minerals0" type="radio" name="kb_use_minerals" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_minerals1" type="radio" name="kb_use_minerals" value="1" style="vertical-align: sub;" checked />any' +
-'<input id="kb_use_minerals2" type="radio" name="kb_use_minerals" value="2" style="vertical-align: sub;" />max | Minerals<br />' +
-'<input id="kb_use_iron0" type="radio" name="kb_use_iron" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_iron1" type="radio" name="kb_use_iron" value="1" style="vertical-align: sub;" checked />any' +
-'<input id="kb_use_iron2" type="radio" name="kb_use_iron" value="2" style="vertical-align: sub;" />max | Iron<br />' +
-'<input id="kb_use_titanium0" type="radio" name="kb_use_titanium" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_titanium1" type="radio" name="kb_use_titanium" value="1" style="vertical-align: sub;" checked />any' +
-'<input id="kb_use_titanium2" type="radio" name="kb_use_titanium" value="2" style="vertical-align: sub;" />max | Titanium<br />' +
-'<input id="kb_use_gold0" type="radio" name="kb_use_gold" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_gold1" type="radio" name="kb_use_gold" value="1" style="vertical-align: sub;" />any' +
-'<input id="kb_use_gold2" type="radio" name="kb_use_gold" value="2" style="vertical-align: sub;" checked />max | Gold<br />' +
-'<input id="kb_use_oil0" type="radio" name="kb_use_oil" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_oil1" type="radio" name="kb_use_oil" value="1" style="vertical-align: sub;" checked />any' +
-'<input id="kb_use_oil2" type="radio" name="kb_use_oil" value="2" style="vertical-align: sub;" />max | Oil<br />' +
-'<input id="kb_use_uranium0" type="radio" name="kb_use_uranium" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_uranium1" type="radio" name="kb_use_uranium" value="1" style="vertical-align: sub;" checked />any' +
-'<input id="kb_use_uranium2" type="radio" name="kb_use_uranium" value="2" style="vertical-align: sub;" />max | Uranium<br />' +
-'<input id="kb_use_unobtainium0" type="radio" name="kb_use_unobtainium" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_unobtainium1" type="radio" name="kb_use_unobtainium" value="1" style="vertical-align: sub;" checked />any' +
-'<input id="kb_use_unobtainium2" type="radio" name="kb_use_unobtainium" value="2" style="vertical-align: sub;" />max | Unobtainium<br />' +
-'<input id="kb_use_science0" type="radio" name="kb_use_science" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_science1" type="radio" name="kb_use_science" value="1" style="vertical-align: sub;" />any' +
-'<input id="kb_use_science2" type="radio" name="kb_use_science" value="2" style="vertical-align: sub;" checked />max | Science<br />' +
-'<input id="kb_use_culture0" type="radio" name="kb_use_culture" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_culture1" type="radio" name="kb_use_culture" value="1" style="vertical-align: sub;" />any' +
-'<input id="kb_use_culture2" type="radio" name="kb_use_culture" value="2" style="vertical-align: sub;" checked />max | Culture<br />' +
-'<input id="kb_use_faith0" type="radio" name="kb_use_faith" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_faith1" type="radio" name="kb_use_faith" value="1" style="vertical-align: sub;" />any' +
-'<input id="kb_use_faith2" type="radio" name="kb_use_faith" value="2" style="vertical-align: sub;" checked />max | Faith<br />' +
-// kittens
-'<input id="kb_use_antimatter0" type="radio" name="kb_use_antimatter" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_antimatter1" type="radio" name="kb_use_antimatter" value="1" style="vertical-align: sub;" checked />any' +
-'<input id="kb_use_antimatter2" type="radio" name="kb_use_antimatter" value="2" style="vertical-align: sub;" />max | Antimatter<br />' +
-// temporalFlux
-'<input id="kb_use_sorrow0" type="radio" name="kb_use_sorrow" value="0" style="vertical-align: sub;" />never' +
-'<input id="kb_use_sorrow1" type="radio" name="kb_use_sorrow" value="1" style="vertical-align: sub;" checked />any' +
-'<input id="kb_use_sorrow2" type="radio" name="kb_use_sorrow" value="2" style="vertical-align: sub;" />max | Sorrow<br />' +
-'<br />' +
-'<input id="kb_use_coal1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Coal<br />' +
-'<input id="kb_use_catpower1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Catpower<br />' +
-'<input id="kb_use_beam1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Beam<br />' +
-'<input id="kb_use_slab1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Slab<br />' +
-'<input id="kb_use_plate1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Plate<br />' +
-'<input id="kb_use_steel1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Steel<br />' +
-'<input id="kb_use_concrete1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Concrete<br />' +
-'<input id="kb_use_gear1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Gear<br />' +
-'<input id="kb_use_alloy1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Alloy<br />' +
-'<input id="kb_use_eludium1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Eludium<br />' +
-'<input id="kb_use_scaffold1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Scaffold<br />' +
-'<input id="kb_use_ship1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Ship<br />' +
-'<input id="kb_use_tanker1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Tanker<br />' +
-'<input id="kb_use_kerosene1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Kerosene<br />' +
-'<input id="kb_use_parchment1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Parchment<br />' +
-'<input id="kb_use_manuscript1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Manuscript<br />' +
-'<input id="kb_use_compedium1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Compendium<br />' +
-'<input id="kb_use_blueprint1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Blueprint<br />' +
-'<input id="kb_use_thorium1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Thorium<br />' +
-'<input id="kb_use_megalith1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Megalith<br />' +
-'<input id="kb_use_starchart1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Starchart<br />' +
-'<input id="kb_use_unicorns1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Unicorns<br />' +
-'<input id="kb_use_alicorn1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Alicorn<br />' +
-'<input id="kb_use_tears1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Tears<br />' +
-'<input id="kb_use_timeCrystal1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Time Crystal<br />' +
-'<input id="kb_use_relic1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Relic<br />' +
-'<input id="kb_use_void1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Void<br />' +
-'<input id="kb_use_ivory1" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Ivory<br />' +
-'</div>' +
+'<div style="border-style: solid; border-width: 1px; padding: 5px;">'
+
+  origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Bonfire'
+  gamePage.render()
+  gamePage.resPool.resources.sort(r => r.maxValue === 0).forEach(function (resource) {
+    if (resource.maxValue === 0) {
+      const id = 'kb_use_' + resource.name + '1'
+      tempString += '<input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />' + resource.name + '<br />'
+    } else {
+      const id = 'kb_use_' + resource.name
+      tempString += '<input id="' + id + '0" type="radio" name="' + id + '" value="0" style="vertical-align: sub;" ' + kbGetConfig(id + '0', false) + '/>never' +
+      '<input id="' + id + '1" type="radio" name="' + id + '" value="1" style="vertical-align: sub;" ' + kbGetConfig(id + '1', false) + '/>any' +
+      '<input id="' + id + '2" type="radio" name="' + id + '" value="2" style="vertical-align: sub;" ' + kbGetConfig(id + '2', true) + ' />max | ' + resource.name + '<br />'
+    }
+  })
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
+
+  tempString +=
 '<p style="text-align: center;"><u>Cheats and Other Stuff</u></p>' +
 '<div style="border-style: solid; border-width: 1px; padding: 5px;">' +
 '<input id="kb_observeEvents" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Observe astronomical events<br />' +
