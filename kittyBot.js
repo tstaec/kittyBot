@@ -11,7 +11,6 @@
 // - Do we really need to switch active tab?
 // - fix ui
 // - fill ui from gamePage not list of names
-// - Check ui when building shit
 // - consider craft bonus while crafting
 // - add all the craftable resources
 
@@ -21,56 +20,6 @@
 // configurable variables
 const kbRunInterval = 5000
 const kbTicksPerSecond = 5
-
-// ########################################################################
-
-const kbScienceNames = [
-  'calendar', 'agriculture', 'archery', 'mining', 'metal',
-  'animal', 'brewery', 'civil', 'math', 'construction',
-  'engineering', 'currency', 'writing', 'philosophy', 'machinery',
-  'steel', 'theology', 'astronomy', 'navigation', 'architecture',
-  'physics', 'metaphysics', 'chemistry', 'acoustics', 'drama',
-  'archeology', 'electricity', 'biology', 'biochemistry', 'genetics',
-  'industrialization', 'mechanization', 'metalurgy', 'combustion', 'ecology',
-  'electronics', 'robotics', 'ai', 'quantumCryptography', 'nuclearFission',
-  'rocketry', 'oilProcessing', 'sattelites', 'orbitalEngineering', 'thorium',
-  'exogeology', 'advExogeology', 'nanotechnology', 'superconductors', 'antimatter',
-  'terraformation', 'hydroponics', 'particlePhysics', 'dimensionalPhysics', 'chronophysics',
-  'tachyonTheory', 'cryptotheology', 'voidSpace', 'paradoxalKnowledge'
-]
-
-const kbScienceLabels = [
-  'Calendar', 'Agriculture', 'Archery', 'Mining', 'Metal Working',
-  'Animal Husbandry', 'Catnip Processing', 'Civil Service', 'Mathematics', 'Construction',
-  'Engineering', 'Currency', 'Writing', 'Philosophy', 'Machinery',
-  'Steel', 'Theology', 'Astronomy', 'Navigation', 'Architecture',
-  'Physics', 'Metaphysics', 'Chemistry', 'Acoustics', 'Drama and Poetry',
-  'Geology', 'Electricity', 'Biology', 'Biochemistry', 'Genetics',
-  'Industrialization', 'Mechanization', 'Metallurgy', 'Combustion', 'Ecology',
-  'Electronics', 'Robotics', 'Artificial Intelligence', 'Quantum Cryptography', 'Nuclear Fission',
-  'Rocketry', 'Oil Processing', 'Satellites', 'Orbital Engineering', 'Thorium',
-  'Exogeology', 'Advanced Exogeology', 'Nanotechnology', 'Superconductors', 'Antimatter',
-  'Terraformation', 'Hydroponics', 'Particle Physics', 'Dimensional Physics', 'Chronophysics',
-  'Tachyon Theory', 'Cryptotheology', 'Void Space', 'Paradoxal Knowledge'
-]
-
-const kbBuildingNames = [
-  'field', 'pasture', 'aqueduct', 'hut', 'logHouse', 'mansion',
-  'library', 'academy', 'observatory', 'biolab', 'barn', 'warehouse',
-  'harbor', 'mine', 'quarry', 'lumberMill', 'oilWell', 'accelerator',
-  'steamworks', 'magneto', 'smelter', 'calciner', 'factory', 'reactor',
-  'amphitheatre', 'chapel', 'temple', 'workshop', 'tradepost', 'mint',
-  'unicornPasture', 'ziggurat', 'chronosphere', 'aiCore'
-]
-
-const kbBuildingLabels = [
-  'Catnip Field', 'Pasture', 'Aqueduct', 'Hut', 'Log House', 'Mansion',
-  'Library', 'Academy', 'Observatory', 'Bio Lab', 'Barn', 'Warehouse',
-  'Harbor', 'Mine', 'Quarry', 'Lumber Mill', 'Oil Well', 'Accelerator',
-  'Steamworks', 'Magneto', 'Smelter', 'Calciner', 'Factory', 'Reactor',
-  'Amphitheatre', 'Chapel', 'Temple', 'Workshop', 'Tradepost', 'Mint',
-  'Unicorn Pasture', 'Ziggurat', 'Chronosphere', 'AI Core'
-]
 
 // ########################################################################
 
@@ -98,11 +47,15 @@ function kbBuildItems (activeTabName, tabIndex) {
     buttons = gamePage.tabs[tabIndex].children.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
   }
   if (activeTabName === 'Religion') {
+    // Get faith upgrades
     buttons = gamePage.tabs[tabIndex].rUpgradeButtons.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
+    // Get unicorn upgrades
+    buttons = buttons.concat(gamePage.tabs[tabIndex].zgUpgradeButtons.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined'))
   }
   buttons.forEach(btn => {
     try {
-      if (kbCheckPrices(btn.model.prices)) {
+      if (
+        document.getElementById('kb_input_' + btn.model.metadata.name).checked && kbCheckPrices(btn.model.prices)) {
         btn.controller.buyItem(btn.model, {}, function (result) { if (result) { console.log('built: ' + btn.model.name); btn.update() } })
       }
     } catch (err) { console.log('err(' + btn.model.name + '):' + err) }
@@ -150,7 +103,9 @@ function kbPraiseTheSun () {
   const origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Religion'
   gamePage.render()
-  if (document.getElementById('kb_praise').checked && kbUse('faith')) {
+  // Only spend faith if there are no active religion research options
+  const activeResearch = gamePage.tabs[5].zgUpgradeButtons.some(b => b.model.enabled)
+  if (!activeResearch && document.getElementById('kb_praise').checked && kbUse('faith')) {
     const btn = gamePage.tabs[5].praiseBtn
     if (btn.model.visible && btn.model.enabled) {
       btn.controller.buyItem(btn.model, {}, function (result) { if (result) { btn.update() } })
@@ -169,6 +124,23 @@ function kbManageKittens () {
       btn.controller.buyItem(btn.model, {}, function (result) { if (result) { btn.update() } })
     }
   }
+}
+
+// ########################################################################
+
+function kbHandleAutomations () {
+  const origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Settlement'
+  gamePage.render()
+  const steamworks = gamePage.tabs[0].children.find(b => typeof (b.model.metadata) !== 'undefined' && b.model.metadata.name === 'steamworks')
+  if (typeof (steamworks) !== 'undefined' && steamworks.model.visible) {
+    steamworks.controller.onAll(steamworks.model)
+    if (steamworks.model.metadata.isAutomationEnabled) {
+      steamworks.controller.handleToggleAutomationLinkClick(steamworks.model)
+    }
+  }
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
 }
 
 // ########################################################################
@@ -219,7 +191,6 @@ function kbReloadUseConfiguration () {
     return obj
   })
 }
-
 // ########################################################################
 
 function kbUse (resourceName) {
@@ -262,7 +233,9 @@ function kbCalculateCraftAmount (materials, ratio, targetResourceName) {
   // console.log(targetResourceName)
   return Math.min(...materials.map(function (material) {
     const resource = gamePage.resPool.get(material.name)
-    if (resource.craftable && resource.name !== 'wood') { // wood is craftable because it can be transformed from catnip but should not betreated as such
+    // wood is craftable because it can be transformed from catnip but should not betreated as such
+    // starcharts are not craftables but are not generated most ofthe time either
+    if (resource.name === 'starchart' || (resource.craftable && resource.name !== 'wood')) {
       return kbCalculateCraftAmountForCraftable(resource, material, ratio, targetResourceName)
     }
     return Math.ceil(resource.perTickCached * kbTicksPerSecond * (kbRunInterval / 1000) / material.val)
@@ -309,16 +282,32 @@ function kbCraft (resourceName) {
   kbCraftWithRatio('plate', Number.MIN_VALUE)
   kbCraftWithRatio('kerosene', Number.MIN_VALUE)
   kbCraftWithRatio('thorium', 10)
-  kbCraftWithRatio('gear', 2)
+  kbCraftWithRatio('gear', 15)
   kbCraftAll('parchment')
   kbCraftWithRatio('manuscript', 2)
   kbCraftWithRatio('compedium', 1)// [sic]
   kbCraftWithRatio('blueprint', 1)
   kbCraftWithRatio('megalith', 10)
+  kbCraftWithRatio('ship', Number.MIN_VALUE)
+  kbCraftWithRatio('alloy', 100)
+  // kbCraftWithRatio('tanker', 100) // not worth it currently
   gamePage.ui.activeTabId = origTab
   gamePage.render()
 }
 
+function kbSacrificeUnicorns () {
+  const origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Religion'
+  gamePage.render()
+  if (document.getElementById('kb_sacrifice_unicorns').checked && kbUse('unicorns')) {
+    const btn = gamePage.tabs[5].sacrificeBtn
+    if (btn.model.visible && btn.model.enabled) {
+      btn.controller.buyItem(btn.model, {}, function (result) { if (result) { btn.update() } })
+    }
+  }
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
+}
 // ########################################################################
 
 function kittyBotGo () {
@@ -327,7 +316,6 @@ function kittyBotGo () {
   kbBuildItems('Religion', 5)
   kbBuildItems('Bonfire', 0)
   kbSendCaravans()
-
   // Use ALL Catpower for hunt
   const kbCatpowerResource = gamePage.resPool.get('manpower')
   if (kbUse('catpower') && ((kbCatpowerResource.maxValue - (kbCatpowerResource.perTickCached * 6)) <= kbCatpowerResource.value)) { console.log('hunting'); gamePage.resPool.village.huntAll() }
@@ -353,11 +341,13 @@ function kittyBotGo () {
   gamePage.bld.gatherCatnip()
 
   kbCraft()
+  kbSacrificeUnicorns()
   kbPromoteKittens()
   kbEnsureLeaderExists()
   kbBuildEmbassies()
   kbPraiseTheSun()
   kbLimitConsumer()
+  kbHandleAutomations()
 }
 
 // ########################################################################
@@ -458,6 +448,7 @@ function kbUIAccess () {
 '<input id="kb_ensure_leader" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Ensure Leader<br />' +
 '<input id="kb_build_embassies" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Build embassies<br />' +
 '<input id="kb_praise" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Praise the sun!<br />' +
+'<input id="kb_sacrifice_unicorns" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Sacrifice unicorns<br />' +
 '<label for="kb_tradeRoutes">Send caravans to:</label>' +
 '<select name="kb_tradeRoutes" id="kb_trade_routes">' +
 '<option value="kb_trade_none">None</option>'
@@ -483,7 +474,23 @@ function kbUIAccess () {
   gamePage.ui.activeTabId = 'Religion'
   gamePage.render()
   gamePage.tabs[5].rUpgradeButtons.forEach(function (faithResearch) {
-    tempString += '<div id="kb_faithDiv_' + faithResearch.id + '"><input id="kb_faithInput_' + faithResearch.id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />' + faithResearch.model.name + '</div>'
+    tempString += '<div id="kb_faithDiv_' + faithResearch.id + '"><input id="kb_input_' + faithResearch.id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />' + faithResearch.model.name + '</div>'
+  })
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
+
+  tempString +=
+'</div>' +
+'<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+'<p><u>Spend tears on:</u></p>' +
+'<div id="kb_unicorn_upgrades" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+'<p>Unicorn upgrades</p>' +
+''
+  origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Religion'
+  gamePage.render()
+  gamePage.tabs[5].zgUpgradeButtons.forEach(function (unicornUpgrades) {
+    tempString += '<div id="kb_unicornDiv_' + unicornUpgrades.id + '"><input id="kb_input_' + unicornUpgrades.id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />' + unicornUpgrades.model.name + '</div>'
   })
   gamePage.ui.activeTabId = origTab
   gamePage.render()
@@ -495,21 +502,46 @@ function kbUIAccess () {
 '<div id="kb_buildings" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
 '<p>Buildings & Space:<br />(Space not added yet)</p>'
 
-  for (let i = 0; i < kbBuildingNames.length; i++) {
-    tempString += '<div id="kb_bldDiv_' + kbBuildingNames[i] + '"><input id="kb_bldInput_' + kbBuildingNames[i] + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />Building: ' + kbBuildingLabels[i] + '</div>'
-  }
-
+  origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Bonfire'
+  gamePage.render()
+  gamePage.tabs[0].children.filter(b => typeof (b.model.metadata) !== 'undefined').forEach(function (buildingButton) {
+    tempString += '<div id="kb_bldDiv_' + buildingButton.model.metadata.name + '"><input id="kb_input_' + buildingButton.model.metadata.name + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />Building: ' + buildingButton.opts.name + '</div>'
+  })
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
   tempString +=
 '</div>' +
 '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
 '<p>Science:</p>' +
 ''
-
-  for (let i = 0; i < kbScienceNames.length; i++) {
-    if ((!gamePage.science.get(kbScienceNames[i]).researched) && (i !== 6)) {
-      tempString += '<div id="kb_sciDiv_' + kbScienceNames[i] + '"><input id="kb_sciInput_' + kbScienceNames[i] + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />' + kbScienceLabels[i] + '</div>'
+  origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Science'
+  gamePage.render()
+  gamePage.tabs[2].buttons.forEach(function (scienceButton) {
+    if ((!scienceButton.model.metadata.researched) && scienceButton.id !== 'brewery') {
+      tempString += '<div id="kb_sciDiv_' + scienceButton.id + '"><input id="kb_input_' + scienceButton.id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />' + scienceButton.model.name + '</div>'
     }
-  }
+  })
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
+
+  tempString +=
+'</div>' +
+'</div>' +
+'<div id="kb_faith_research" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+'<p>Workshop upgrades</p>' +
+''
+  origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Workshop'
+  gamePage.render()
+  gamePage.tabs[3].buttons.forEach(function (upgrade) {
+    if (!upgrade.model.metadata.researched) {
+      tempString += '<div id="kb_workshopDiv_' + upgrade.model.metadata.name + '"><input id="kb_input_' + upgrade.model.metadata.name + '" type="checkbox" style="display: inline-block; vertical-align: sub;" checked />' + upgrade.model.name + '</div>'
+    }
+  })
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
 
   tempString +=
 '</div>' +
