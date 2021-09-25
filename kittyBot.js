@@ -13,6 +13,7 @@
 // - fill ui from gamePage not list of names
 // - consider craft bonus while crafting
 // - add all the craftable resources
+// - add checks for craftbale resources
 
 // Define global variables to satisfy ESLint
 /* global gamePage */
@@ -29,7 +30,7 @@ let kbConfig = []
 // eslint-disable-next-line no-unused-vars
 function kittyBotToggle () {
   clearInterval(kittyBotInterval)
-  if (kbGetConfig('kb_use_bot', false) === 'checked') {
+  if (document.getElementById('kb_use_bot').checked) {
     kittyBotInterval = setInterval(kittyBotGo, kbRunInterval)
   }
 }
@@ -50,6 +51,12 @@ function kbBuildItems (activeTabName, tabIndex) {
     buttons = gamePage.tabs[tabIndex].rUpgradeButtons.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
     // Get unicorn upgrades
     buttons = buttons.concat(gamePage.tabs[tabIndex].zgUpgradeButtons.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined'))
+  }
+  if (activeTabName === 'Space') {
+    // Get launch buttons
+    buttons = gamePage.tabs[tabIndex].GCPanel.children.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
+    // Get planet buildings
+    buttons = buttons.concat(gamePage.tabs[tabIndex].planetPanels.map(pp => pp.children.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')).flat())
   }
   buttons.forEach(btn => {
     try {
@@ -189,6 +196,8 @@ function kbSaveConfiguration () {
     obj.checked = element.checked
     return obj
   })
+  const selectedRaceId = document.getElementById('kb_trade_routes').selectedOptions[0].value
+  kbConfig.push({ id: 'kb_trade_selected', value: selectedRaceId })
   localStorage.setItem('kittenBot', JSON.stringify(kbConfig))
 }
 
@@ -239,7 +248,8 @@ function kbCalculateCraftAmount (materials, ratio, targetResourceName) {
     if (resource.name === 'starchart' || (resource.craftable && resource.name !== 'wood')) {
       return kbCalculateCraftAmountForCraftable(resource, material, ratio, targetResourceName)
     }
-    return Math.ceil(resource.perTickCached * kbTicksPerSecond * (kbRunInterval / 1000) / material.val)
+    const magicNumber = 1 // Yes this is magic, change it if the calculated amount is not exactly enough to max it our till the next run.
+    return Math.ceil(resource.perTickCached * kbTicksPerSecond * (magicNumber + (kbRunInterval / 1000)) / material.val)
   }))
 }
 
@@ -290,7 +300,7 @@ function kbCraft (resourceName) {
   kbCraftWithRatio('blueprint', 1)
   kbCraftWithRatio('megalith', 10)
   kbCraftWithRatio('ship', Number.MIN_VALUE)
-  kbCraftWithRatio('alloy', 100)
+  kbCraftWithRatio('alloy', 10)
   kbCraftWithRatio('eludium', 100)
   kbCraftWithRatio('thorium', Number.MIN_VALUE)
   // kbCraftWithRatio('tanker', 100) // not worth it currently
@@ -304,7 +314,7 @@ function kbSacrificeUnicorns () {
   gamePage.render()
   if (document.getElementById('kb_sacrifice_unicorns').checked && kbUse('unicorns')) {
     const btn = gamePage.tabs[5].sacrificeBtn
-    if (btn.model.visible && btn.model.enabled) {
+    if (typeof (btn) !== 'undefined' && btn !== null && btn.model.visible && btn.model.enabled) {
       btn.controller.buyItem(btn.model, {}, function (result) { if (result) { btn.update() } })
     }
   }
@@ -319,6 +329,7 @@ function kittyBotGo () {
   kbBuildItems('Science', 2)
   kbBuildItems('Religion', 5)
   kbBuildItems('Bonfire', 0)
+  kbBuildItems('Space', 6)
   kbSendCaravans()
 
   // Use ALL Catpower for hunt
@@ -352,7 +363,7 @@ function kittyBotGo () {
   kbBuildEmbassies()
   kbPraiseTheSun()
   kbLimitConsumer()
-  kbHandleAutomations()
+  // kbHandleAutomations()
 }
 
 // ########################################################################
@@ -361,9 +372,9 @@ function rgb2hex (rgb) {
   rgb = rgb.match(/^rgba?[\s+]?\([\s+]?(\d+)[\s+]?,[\s+]?(\d+)[\s+]?,[\s+]?(\d+)[\s+]?/i)
   return (rgb && rgb.length === 4)
     ? '#' +
-      ('0' + parseInt(rgb[1], 10).toString(16)).slice(-2) +
-      ('0' + parseInt(rgb[2], 10).toString(16)).slice(-2) +
-      ('0' + parseInt(rgb[3], 10).toString(16)).slice(-2)
+    ('0' + parseInt(rgb[1], 10).toString(16)).slice(-2) +
+    ('0' + parseInt(rgb[2], 10).toString(16)).slice(-2) +
+    ('0' + parseInt(rgb[3], 10).toString(16)).slice(-2)
     : ''
 }
 
@@ -386,28 +397,39 @@ function kbLimitConsumer () {
   const origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Bonfire'
   gamePage.render()
-
   const limit = 0.5 // Only this percentage of the base recources are permitted to be consumed by the consumer.
-  const woodPerTick = gamePage.resPool.get('wood').perTickCached
-  const mineralsPerTick = gamePage.resPool.get('minerals').perTickCached
-  const smelter = gamePage.tabs[0].children.find(c => typeof (c.model.metadata) !== 'undefined' && c.model.metadata.name === 'smelter')
-  if (typeof (smelter) !== 'undefined') {
-    const smelterWoodPerTickCon = smelter.model.metadata.effects.woodPerTickCon
-    const smelterMineralsPerTickCon = smelter.model.metadata.effects.mineralsPerTickCon
-    const maxSmelterCount = Math.min(Math.floor((woodPerTick * limit) / Math.abs(smelterWoodPerTickCon)), Math.floor((mineralsPerTick * limit) / Math.abs(smelterMineralsPerTickCon)))
-    kbSetConsumer(smelter, maxSmelterCount)
-  }
 
-  const goldPerTick = gamePage.resPool.get('gold').perTickCached
-  const catpowerPerTick = gamePage.resPool.get('manpower').perTickCached
-  const mint = gamePage.tabs[0].children.find(c => typeof (c.model.metadata) !== 'undefined' && c.model.metadata.name === 'mint')
-  if (typeof (mint) !== 'undefined') {
-    const mintGoldPerTickCon = mint.model.metadata.effects.goldPerTickCon
-    const mintCatpowerPerTickCon = mint.model.metadata.effects.manpowerPerTickCon
-    const maxMintCount = Math.min(Math.floor((goldPerTick * limit) / Math.abs(mintGoldPerTickCon)), Math.floor((catpowerPerTick * limit) / Math.abs(mintCatpowerPerTickCon)))
-    kbSetConsumer(mint, maxMintCount)
-  }
+  if (kbGetConfig('kb_limit_consumer') === 'checked') {
+    const smelter = gamePage.tabs[0].children.find(c => typeof (c.model.metadata) !== 'undefined' && c.model.metadata.name === 'smelter')
+    if (typeof (smelter) !== 'undefined') {
+      const woodPerTick = gamePage.resPool.get('wood').perTickCached
+      const mineralsPerTick = gamePage.resPool.get('minerals').perTickCached
+      const smelterWoodPerTickCon = smelter.model.metadata.effects.woodPerTickCon
+      const smelterMineralsPerTickCon = smelter.model.metadata.effects.mineralsPerTickCon
+      const maxSmelterCount = Math.min(Math.floor((woodPerTick * limit) / Math.abs(smelterWoodPerTickCon)), Math.floor((mineralsPerTick * limit) / Math.abs(smelterMineralsPerTickCon)))
+      kbSetConsumer(smelter, maxSmelterCount)
+    }
 
+    const mint = gamePage.tabs[0].children.find(c => typeof (c.model.metadata) !== 'undefined' && c.model.metadata.name === 'mint')
+    if (typeof (mint) !== 'undefined') {
+      const goldPerTick = gamePage.resPool.get('gold').perTickCached
+      const catpowerPerTick = gamePage.resPool.get('manpower').perTickCached
+      const mintGoldPerTickCon = mint.model.metadata.effects.goldPerTickCon
+      const mintCatpowerPerTickCon = mint.model.metadata.effects.manpowerPerTickCon
+      const maxMintCount = Math.min(Math.floor((goldPerTick * limit) / Math.abs(mintGoldPerTickCon)), Math.floor((catpowerPerTick * limit) / Math.abs(mintCatpowerPerTickCon)))
+      kbSetConsumer(mint, maxMintCount)
+    }
+
+    const calciner = gamePage.tabs[0].children.find(c => typeof (c.model.metadata) !== 'undefined' && c.model.metadata.name === 'calciner')
+    if (typeof (calciner) !== 'undefined') {
+      const mineralsPerTick = gamePage.resPool.get('minerals').perTickCached
+      const oilPerTick = gamePage.resPool.get('oil').perTickCached
+      const calcinerOilPerTickCon = calciner.model.metadata.effects.oilPerTickCon
+      const calcinerMineralsPerTickCon = calciner.model.metadata.effects.mineralsPerTickCon
+      const maxCalcinerCount = Math.min(Math.floor((mineralsPerTick * limit) / Math.abs(calcinerMineralsPerTickCon)), Math.floor((oilPerTick * limit) / Math.abs(calcinerOilPerTickCon)))
+      kbSetConsumer(calciner, maxCalcinerCount)
+    }
+  }
   gamePage.ui.activeTabId = origTab
   gamePage.render()
 }
@@ -432,9 +454,9 @@ function kbUIAccess () {
 
   dPanel.insertBefore(kittyBotUIaccess, document.getElementById('devPanel'))
   tempString +=
-   ' & ' +
-   '<a onclick="kbToggleUI();" href="#">kittyBot</a>' +
-   '<span style="font-size: small;"> ver 0.4 by LoyLT & tstaec</span>'
+    ' & ' +
+    '<a onclick="kbToggleUI();" href="#">kittyBot</a>' +
+    '<span style="font-size: small;"> ver 0.4 by LoyLT & tstaec</span>'
   kittyBotUIaccess.innerHTML = tempString
 
   kbCreatUI()
@@ -473,36 +495,48 @@ function kbCreatUI () {
 
   tempString = ''
   tempString +=
-'<input type="checkbox" id="kb_use_bot" style="display: inline-block;" onClick="kittyBotToggle();" ' + kbGetConfig('kb_use_bot', false) + '/>kittyBot is running if this is checked.<br />' +
-'<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-'<p>Actions:</p>' +
-'<input id="kb_promote" type="checkbox" style="vertical-align: sub; display: inline-block;"  ' + kbGetConfig('kb_promote', true) + ' />Promote<br />' +
-'<input id="kb_manage" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_manage', true) + ' />Manage workers<br />' +
-'<input id="kb_ensure_leader" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_ensure_leader', true) + ' />Ensure Leader<br />' +
-'<input id="kb_build_embassies" type="checkbox" style="vertical-align: sub; display: inline-block;"  ' + kbGetConfig('kb_build_embassies', true) + ' />Build embassies<br />' +
-'<input id="kb_praise" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_praise', true) + ' />Praise the sun!<br />' +
-'<input id="kb_sacrifice_unicorns" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_sacrifice_unicorns', true) + ' />Sacrifice unicorns<br />' +
-'<label for="kb_tradeRoutes">Send caravans to:</label>' +
-'<select name="kb_tradeRoutes" id="kb_trade_routes">' +
-'<option value="kb_trade_none">None</option>'
+    '<input type="checkbox" id="kb_use_bot" style="display: inline-block;" onClick="kittyBotToggle();" ' + kbGetConfig('kb_use_bot', false) + '/>kittyBot is running if this is checked.<br />' +
+    '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p>Actions:</p>' +
+    '<input id="kb_promote" type="checkbox" style="vertical-align: sub; display: inline-block;"  ' + kbGetConfig('kb_promote', true) + ' />Promote<br />' +
+    '<input id="kb_manage" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_manage', true) + ' />Manage workers<br />' +
+    '<input id="kb_ensure_leader" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_ensure_leader', true) + ' />Ensure Leader<br />' +
+    '<input id="kb_build_embassies" type="checkbox" style="vertical-align: sub; display: inline-block;"  ' + kbGetConfig('kb_build_embassies', true) + ' />Build embassies<br />' +
+    '<input id="kb_praise" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_praise', true) + ' />Praise the sun!<br />' +
+    '<input id="kb_sacrifice_unicorns" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_sacrifice_unicorns', true) + ' />Sacrifice unicorns<br />' +
+    '<input id="kb_limit_consumer" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_limit_consumer', true) + ' />Limit consumer<br />' +
+    '<label for="kb_tradeRoutes">Send caravans to:</label>' +
+    '<select name="kb_tradeRoutes" id="kb_trade_routes">' +
+    '<option value="kb_trade_none">None</option>'
 
   let origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Trade'
   gamePage.render()
+  const selectedRace = kbConfig.find(c => c.id === 'kb_trade_selected')
+  let raceId = 'kb_trade_none'
+  if (typeof (selectedRace) !== 'undefined') {
+    raceId = selectedRace.value
+  }
   gamePage.tabs[4].racePanels.forEach(function (racePanel) {
-    tempString += '<option value="kb_trade_' + racePanel.race.name + '">' + racePanel.race.title + '</option>'
+    const id = 'kb_trade_' + racePanel.race.name
+    let selectedValue = ''
+    if (raceId === id) {
+      selectedValue = 'selected="true"'
+    }
+
+    tempString += '<option value="' + id + '" ' + selectedValue + '>' + racePanel.race.title + '</option>'
   })
   gamePage.ui.activeTabId = origTab
   gamePage.render()
 
   tempString +=
-'</select>' +
-'</div>' +
-'<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-'<p><u>Spend faith on:</u></p>' +
-'<div id="kb_faith_research" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-'<p>Religion research</p>' +
-''
+    '</select>' +
+    '</div>' +
+    '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p><u>Spend faith on:</u></p>' +
+    '<div id="kb_faith_research" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p>Religion research</p>' +
+    ''
   origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Religion'
   gamePage.render()
@@ -514,12 +548,12 @@ function kbCreatUI () {
   gamePage.render()
 
   tempString +=
-'</div>' +
-'<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-'<p><u>Spend tears on:</u></p>' +
-'<div id="kb_unicorn_upgrades" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-'<p>Unicorn upgrades</p>' +
-''
+    '</div>' +
+    '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p><u>Spend tears on:</u></p>' +
+    '<div id="kb_unicorn_upgrades" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p>Unicorn upgrades</p>' +
+    ''
   origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Religion'
   gamePage.render()
@@ -531,11 +565,11 @@ function kbCreatUI () {
   gamePage.render()
 
   tempString +=
-'</div>' +
-'<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-'<p><u>Spend Resources on:</u></p>' +
-'<div id="kb_buildings" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-'<p>Buildings & Space:<br />(Space not added yet)</p>'
+    '</div>' +
+    '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p><u>Spend Resources on:</u></p>' +
+    '<div id="kb_buildings" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p>Buildings</p>'
 
   origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Bonfire'
@@ -547,10 +581,24 @@ function kbCreatUI () {
   gamePage.ui.activeTabId = origTab
   gamePage.render()
   tempString +=
-'</div>' +
-'<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-'<p>Science:</p>' +
-''
+    '</div>' +
+    '<div id="kb_buildings" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p> Space Buildings</p>'
+
+  origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Space'
+  gamePage.render()
+  gamePage.tabs[6].planetPanels.map(pp => pp.children).flat().forEach(function (buildingButton) {
+    const id = 'kb_input_' + buildingButton.id
+    tempString += '<div id="kb_bldDiv_' + buildingButton.id + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />Building: ' + buildingButton.model.name + '</div>'
+  })
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
+  tempString +=
+    '</div>' +
+    '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p>Science:</p>' +
+    ''
   origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Science'
   gamePage.render()
@@ -564,10 +612,28 @@ function kbCreatUI () {
   gamePage.render()
 
   tempString +=
-'</div>' +
-'</div>' +
-'<div id="kb_faith_research" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-'<p>Workshop upgrades</p>'
+    '</div>' +
+    '</div>' +
+    '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p>Planet missions:</p>'
+
+  origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Space'
+  gamePage.render()
+  gamePage.tabs[6].GCPanel.children.forEach(function (spaceBuildingButton) {
+    if ((!spaceBuildingButton.model.on)) {
+      const id = 'kb_input_' + spaceBuildingButton.id
+      tempString += '<div id="kb_sciDiv_' + spaceBuildingButton.id + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />' + spaceBuildingButton.model.name + '</div>'
+    }
+  })
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
+
+  tempString +=
+    '</div>' +
+
+    '<div id="kb_workshop_research" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p>Workshop upgrades</p>'
 
   origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Workshop'
@@ -582,11 +648,26 @@ function kbCreatUI () {
   gamePage.render()
 
   tempString +=
-'</div>' +
-'</div>' +
-'<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-'<p><u>Use Resources to build or craft</u></p>' +
-'<div style="border-style: solid; border-width: 1px; padding: 5px;">'
+    '</div>' +
+    '<div id="kb_workshop_crafts" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p>Workshop crafting</p>'
+
+  origTab = gamePage.ui.activeTabId
+  gamePage.ui.activeTabId = 'Workshop'
+  gamePage.render()
+  gamePage.tabs[3].craftBtns.forEach(function (craftButton) {
+    const id = 'kb_input_craft_' + craftButton.craftName
+    tempString += '<div id="kb_workshopDiv_' + craftButton.craftName + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />' + craftButton.model.name + '</div>'
+  })
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
+
+  tempString +=
+    '</div>' +
+    '</div>' +
+    '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p><u>Use Resources to build or craft</u></p>' +
+    '<div style="border-style: solid; border-width: 1px; padding: 5px;">'
 
   origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Bonfire'
@@ -598,22 +679,22 @@ function kbCreatUI () {
     } else {
       const id = 'kb_use_' + resource.name
       tempString += '<input id="' + id + '0" type="radio" name="' + id + '" value="0" style="vertical-align: sub;" ' + kbGetConfig(id + '0', false) + '/>never' +
-      '<input id="' + id + '1" type="radio" name="' + id + '" value="1" style="vertical-align: sub;" ' + kbGetConfig(id + '1', false) + '/>any' +
-      '<input id="' + id + '2" type="radio" name="' + id + '" value="2" style="vertical-align: sub;" ' + kbGetConfig(id + '2', true) + ' />max | ' + resource.name + '<br />'
+        '<input id="' + id + '1" type="radio" name="' + id + '" value="1" style="vertical-align: sub;" ' + kbGetConfig(id + '1', false) + '/>any' +
+        '<input id="' + id + '2" type="radio" name="' + id + '" value="2" style="vertical-align: sub;" ' + kbGetConfig(id + '2', true) + ' />max | ' + resource.name + '<br />'
     }
   })
   gamePage.ui.activeTabId = origTab
   gamePage.render()
 
   tempString +=
-'<p style="text-align: center;"><u>Cheats and Other Stuff</u></p>' +
-'<div style="border-style: solid; border-width: 1px; padding: 5px;">' +
-'<input id="kb_observeEvents" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Observe astronomical events<br />' +
-'<input id="kb_gatherCatnip" type="radio" name="kb_gather" style="vertical-align: sub;" />Gather catnip (1/s)<br />' +
-'<input id="kb_gatherEnough" type="radio" name="kb_gather" style="vertical-align: sub;" checked/>Gather enough to survive (cheat)<br />' +
-'</div>' +
-'</div>' +
-''
+    '<p style="text-align: center;"><u>Cheats and Other Stuff</u></p>' +
+    '<div style="border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<input id="kb_observeEvents" type="checkbox" style="vertical-align: sub; display: inline-block;" checked />Observe astronomical events<br />' +
+    '<input id="kb_gatherCatnip" type="radio" name="kb_gather" style="vertical-align: sub;" />Gather catnip (1/s)<br />' +
+    '<input id="kb_gatherEnough" type="radio" name="kb_gather" style="vertical-align: sub;" checked/>Gather enough to survive (cheat)<br />' +
+    '</div>' +
+    '</div>' +
+    ''
 
   kittyBotUI.innerHTML = tempString
 }
