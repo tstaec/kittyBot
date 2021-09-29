@@ -13,7 +13,9 @@
 // - fill ui from gamePage not list of names
 // - consider craft bonus while crafting
 // - add all the craftable resources
-// - add checks for craftbale resources
+// - add festival automation
+// - add time speed automation
+// - Fix space missions being on same checkbox as space buildings
 
 // Define global variables to satisfy ESLint
 /* global gamePage */
@@ -38,7 +40,9 @@ function kittyBotToggle () {
 // ########################################################################
 
 function kbBuildItems (activeTabName, tabIndex) {
-  const origTab = gamePage.ui.activeTabId
+  if (kbGetConfig('kb_use_' + activeTabName.toLowerCase()) !== 'checked') {
+    return
+  }
   gamePage.ui.activeTabId = activeTabName
   gamePage.render()
   let buttons = gamePage.tabs[tabIndex].buttons.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
@@ -66,14 +70,11 @@ function kbBuildItems (activeTabName, tabIndex) {
       }
     } catch (err) { console.log('err(' + btn.model.name + '):' + err) }
   })
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 }
 
 // ########################################################################
 
 function kbSendCaravans () {
-  const origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Trade'
   gamePage.render()
   const tradeTarget = document.getElementById('kb_trade_routes').value
@@ -83,14 +84,11 @@ function kbSendCaravans () {
       targetButton.tradeBtn.controller.buyItem(targetButton.tradeBtn.model, {}, function (result) { if (result) { targetButton.tradeBtn.update() } })
     }
   }
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 }
 
 // ########################################################################
 
 function kbPromoteKittens () {
-  const origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Village'
   gamePage.render()
   if (document.getElementById('kb_promote').checked && kbUse('gold')) {
@@ -99,14 +97,11 @@ function kbPromoteKittens () {
       btn.controller.buyItem(btn.model, {}, function (result) { if (result) { btn.update(); kbManageKittens() } })
     }
   }
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 }
 
 // ########################################################################
 
 function kbPraiseTheSun () {
-  const origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Religion'
   gamePage.render()
   // Only spend faith if there are no active religion research options
@@ -117,8 +112,6 @@ function kbPraiseTheSun () {
       btn.controller.buyItem(btn.model, {}, function (result) { if (result) { btn.update() } })
     }
   }
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 }
 
 // ########################################################################
@@ -135,7 +128,6 @@ function kbManageKittens () {
 // ########################################################################
 
 function kbHandleAutomations () {
-  const origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Settlement'
   gamePage.render()
   const steamworks = gamePage.tabs[0].children.find(b => typeof (b.model.metadata) !== 'undefined' && b.model.metadata.name === 'steamworks')
@@ -145,14 +137,11 @@ function kbHandleAutomations () {
       steamworks.controller.handleToggleAutomationLinkClick(steamworks.model)
     }
   }
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 }
 
 // ########################################################################
 
 function kbEnsureLeaderExists () {
-  const origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Settlement'
   gamePage.render()
   if (document.getElementById('kb_ensure_leader').checked) {
@@ -162,14 +151,11 @@ function kbEnsureLeaderExists () {
       worker.isLeader = true
     }
   }
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 }
 
 // ########################################################################
 
 function kbBuildEmbassies () {
-  const origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Trade'
   gamePage.render()
   if (document.getElementById('kb_build_embassies').checked) {
@@ -183,8 +169,6 @@ function kbBuildEmbassies () {
       }
     }
   }
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 }
 
 // ########################################################################
@@ -276,14 +260,19 @@ function kbCraftWithRatio (resourceName, ratio) {
 }
 
 function kbCraftAll (resourceName) {
+  if (kbGetConfig('kb_use_workshop_crafting', false) !== 'checked') {
+    return
+  }
   const button = gamePage.tabs[3].craftBtns.find(btn => btn.craftName === resourceName && btn.model.enabled && btn.model.visible)
   if (typeof (button) !== 'undefined') {
     gamePage.craftAll(button.craftName)
   }
 }
 
-function kbCraft (resourceName) {
-  const origTab = gamePage.ui.activeTabId
+function kbCraft () {
+  if (kbGetConfig('kb_use_workshop_crafting', false) !== 'checked') {
+    return
+  }
   gamePage.ui.activeTabId = 'Workshop'
   gamePage.render()
   kbCraftWithRatio('beam', Number.MIN_VALUE)
@@ -301,15 +290,13 @@ function kbCraft (resourceName) {
   kbCraftWithRatio('megalith', 10)
   kbCraftWithRatio('ship', Number.MIN_VALUE)
   kbCraftWithRatio('alloy', 10)
-  kbCraftWithRatio('eludium', 100)
+  kbCraftWithRatio('eludium', 1)
   kbCraftWithRatio('thorium', Number.MIN_VALUE)
+  kbCraftWithRatio('concrete', 100)
   // kbCraftWithRatio('tanker', 100) // not worth it currently
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 }
 
 function kbSacrificeUnicorns () {
-  const origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Religion'
   gamePage.render()
   if (document.getElementById('kb_sacrifice_unicorns').checked && kbUse('unicorns')) {
@@ -318,23 +305,34 @@ function kbSacrificeUnicorns () {
       btn.controller.buyItem(btn.model, {}, function (result) { if (result) { btn.update() } })
     }
   }
-  gamePage.ui.activeTabId = origTab
+}
+
+function kbPartyAllTheTime () {
+  if (kbGetConfig('kb_start_festival', true) !== 'checked' || gamePage.calendar.festivalDays > 10) {
+    return
+  }
+  gamePage.ui.activeTabId = 'Village'
   gamePage.render()
+  const festivalButton = gamePage.tabs[1].festivalBtn
+  if (typeof (festivalButton) !== 'undefined' && festivalButton.model.enabled && festivalButton.model.visible) {
+    festivalButton.controller.buyItem(festivalButton.model, {}, function (result) { if (result) { festivalButton.update() } })
+  }
 }
 
 // ########################################################################
 
 function kittyBotGo () {
+  const origTab = gamePage.ui.activeTabId
   kbBuildItems('Workshop', 3)
   kbBuildItems('Science', 2)
   kbBuildItems('Religion', 5)
-  kbBuildItems('Bonfire', 0)
   kbBuildItems('Space', 6)
+  kbBuildItems('Bonfire', 0)
   kbSendCaravans()
 
   // Use ALL Catpower for hunt
   const kbCatpowerResource = gamePage.resPool.get('manpower')
-  if (kbUse('manpower') && ((kbCatpowerResource.maxValue - (kbCatpowerResource.perTickCached * 6)) <= kbCatpowerResource.value)) { console.log('hunting'); gamePage.resPool.village.huntAll() }
+  if (kbUse('manpower') && ((kbCatpowerResource.maxValue - (kbCatpowerResource.perTickCached * 6)) <= kbCatpowerResource.value)) { gamePage.resPool.village.huntAll() }
 
   // Auto Observe Astronomical Events
   if (document.getElementById('kb_observeEvents').checked) {
@@ -363,7 +361,11 @@ function kittyBotGo () {
   kbBuildEmbassies()
   kbPraiseTheSun()
   kbLimitConsumer()
+  kbPartyAllTheTime()
   // kbHandleAutomations()
+
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
 }
 
 // ########################################################################
@@ -394,7 +396,6 @@ function kbToggleUI () {
 // ########################################################################
 
 function kbLimitConsumer () {
-  const origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Bonfire'
   gamePage.render()
   const limit = 0.5 // Only this percentage of the base recources are permitted to be consumed by the consumer.
@@ -430,8 +431,6 @@ function kbLimitConsumer () {
       kbSetConsumer(calciner, maxCalcinerCount)
     }
   }
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 }
 
 function kbSetConsumer (building, maxConsumerCount) {
@@ -483,6 +482,7 @@ function kbGetConfig (key, defaultValue) {
 
 function kbCreatUI () {
   let tempString = ''
+  const origTab = gamePage.ui.activeTabId
   const kittyBotUI = document.createElement('div')
   const existingUI = document.getElementById('kittyBotDiv')
   kbConfig = JSON.parse(localStorage.getItem('kittenBot'))
@@ -505,11 +505,11 @@ function kbCreatUI () {
     '<input id="kb_praise" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_praise', true) + ' />Praise the sun!<br />' +
     '<input id="kb_sacrifice_unicorns" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_sacrifice_unicorns', true) + ' />Sacrifice unicorns<br />' +
     '<input id="kb_limit_consumer" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_limit_consumer', true) + ' />Limit consumer<br />' +
+    '<input id="kb_start_festival" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_start_festival', true) + ' />Start festivals<br />' +
     '<label for="kb_tradeRoutes">Send caravans to:</label>' +
     '<select name="kb_tradeRoutes" id="kb_trade_routes">' +
     '<option value="kb_trade_none">None</option>'
 
-  let origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Trade'
   gamePage.render()
   const selectedRace = kbConfig.find(c => c.id === 'kb_trade_selected')
@@ -526,8 +526,6 @@ function kbCreatUI () {
 
     tempString += '<option value="' + id + '" ' + selectedValue + '>' + racePanel.race.title + '</option>'
   })
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 
   tempString +=
     '</select>' +
@@ -535,71 +533,58 @@ function kbCreatUI () {
     '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
     '<p><u>Spend faith on:</u></p>' +
     '<div id="kb_faith_research" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-    '<p>Religion research</p>' +
-    ''
-  origTab = gamePage.ui.activeTabId
+    '<p><input id="kb_use_religion" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_use_religion', true) + ' />Religion</p>'
+
   gamePage.ui.activeTabId = 'Religion'
   gamePage.render()
   gamePage.tabs[5].rUpgradeButtons.forEach(function (faithResearch) {
     const id = 'kb_input_' + faithResearch.id
     tempString += '<div id="kb_faithDiv_' + faithResearch.id + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />' + faithResearch.model.name + '</div>'
   })
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 
   tempString +=
     '</div>' +
     '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
     '<p><u>Spend tears on:</u></p>' +
     '<div id="kb_unicorn_upgrades" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-    '<p>Unicorn upgrades</p>' +
-    ''
-  origTab = gamePage.ui.activeTabId
-  gamePage.ui.activeTabId = 'Religion'
-  gamePage.render()
+    '<p><input id="kb_use_unicorn_upgrades" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_use_unicorn_upgrades', true) + ' />Unicorn upgrades</p>'
+
   gamePage.tabs[5].zgUpgradeButtons.forEach(function (unicornUpgrades) {
     const id = 'kb_input_' + unicornUpgrades.id
     tempString += '<div id="kb_unicornDiv_' + unicornUpgrades.id + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />' + unicornUpgrades.model.name + '</div>'
   })
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 
   tempString +=
     '</div>' +
     '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
     '<p><u>Spend Resources on:</u></p>' +
     '<div id="kb_buildings" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-    '<p>Buildings</p>'
+    '<p><input id="kb_use_bonfire" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_use_bonfire', true) + ' />Buildings</p>'
 
-  origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Bonfire'
   gamePage.render()
   gamePage.tabs[0].children.filter(b => typeof (b.model.metadata) !== 'undefined').forEach(function (buildingButton) {
     const id = 'kb_input_' + buildingButton.model.metadata.name
     tempString += '<div id="kb_bldDiv_' + buildingButton.model.metadata.name + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />Building: ' + buildingButton.opts.name + '</div>'
   })
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
+
   tempString +=
     '</div>' +
-    '<div id="kb_buildings" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-    '<p> Space Buildings</p>'
+    '<div id="kb_space" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p><input id="kb_use_space" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_use_space', true) + ' />Space Buildings</p>'
 
-  origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Space'
   gamePage.render()
   gamePage.tabs[6].planetPanels.map(pp => pp.children).flat().forEach(function (buildingButton) {
     const id = 'kb_input_' + buildingButton.id
     tempString += '<div id="kb_bldDiv_' + buildingButton.id + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />Building: ' + buildingButton.model.name + '</div>'
   })
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
+
   tempString +=
     '</div>' +
     '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-    '<p>Science:</p>' +
-    ''
-  origTab = gamePage.ui.activeTabId
+    '<p><input id="kb_use_science" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_use_science', true) + ' />Science</p>'
+
   gamePage.ui.activeTabId = 'Science'
   gamePage.render()
   gamePage.tabs[2].buttons.forEach(function (scienceButton) {
@@ -608,16 +593,13 @@ function kbCreatUI () {
       tempString += '<div id="kb_sciDiv_' + scienceButton.id + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />' + scienceButton.model.name + '</div>'
     }
   })
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 
   tempString +=
     '</div>' +
     '</div>' +
     '<div style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-    '<p>Planet missions:</p>'
+    '<p><input id="kb_use_planet_missions" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_use_planet_missions', true) + ' />Planet missions</p>'
 
-  origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Space'
   gamePage.render()
   gamePage.tabs[6].GCPanel.children.forEach(function (spaceBuildingButton) {
@@ -626,16 +608,13 @@ function kbCreatUI () {
       tempString += '<div id="kb_sciDiv_' + spaceBuildingButton.id + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />' + spaceBuildingButton.model.name + '</div>'
     }
   })
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 
   tempString +=
     '</div>' +
 
     '<div id="kb_workshop_research" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-    '<p>Workshop upgrades</p>'
+    '<p><input id="kb_use_workshop_upgrades" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_use_workshop_upgrades', true) + ' />Workshop upgrades</p>'
 
-  origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Workshop'
   gamePage.render()
   gamePage.tabs[3].buttons.forEach(function (upgrade) {
@@ -644,23 +623,16 @@ function kbCreatUI () {
       tempString += '<div id="kb_workshopDiv_' + upgrade.model.metadata.name + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />' + upgrade.model.name + '</div>'
     }
   })
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 
   tempString +=
     '</div>' +
     '<div id="kb_workshop_crafts" style="align: center; vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-    '<p>Workshop crafting</p>'
+    '<p><input id="kb_use_workshop_crafting" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_use_workshop_crafting', true) + ' />Workshop crafting</p>'
 
-  origTab = gamePage.ui.activeTabId
-  gamePage.ui.activeTabId = 'Workshop'
-  gamePage.render()
   gamePage.tabs[3].craftBtns.forEach(function (craftButton) {
     const id = 'kb_input_craft_' + craftButton.craftName
     tempString += '<div id="kb_workshopDiv_' + craftButton.craftName + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />' + craftButton.model.name + '</div>'
   })
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 
   tempString +=
     '</div>' +
@@ -669,7 +641,6 @@ function kbCreatUI () {
     '<p><u>Use Resources to build or craft</u></p>' +
     '<div style="border-style: solid; border-width: 1px; padding: 5px;">'
 
-  origTab = gamePage.ui.activeTabId
   gamePage.ui.activeTabId = 'Bonfire'
   gamePage.render()
   gamePage.resPool.resources.sort(r => r.maxValue === 0).forEach(function (resource) {
@@ -683,8 +654,6 @@ function kbCreatUI () {
         '<input id="' + id + '2" type="radio" name="' + id + '" value="2" style="vertical-align: sub;" ' + kbGetConfig(id + '2', true) + ' />max | ' + resource.name + '<br />'
     }
   })
-  gamePage.ui.activeTabId = origTab
-  gamePage.render()
 
   tempString +=
     '<p style="text-align: center;"><u>Cheats and Other Stuff</u></p>' +
@@ -697,6 +666,9 @@ function kbCreatUI () {
     ''
 
   kittyBotUI.innerHTML = tempString
+
+  gamePage.ui.activeTabId = origTab
+  gamePage.render()
 }
 
 kbUIAccess()
