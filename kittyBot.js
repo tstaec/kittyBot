@@ -8,16 +8,12 @@
 // ##############################################################################
 
 // todo:
-// - Do we really need to switch active tab?
+// - Do we really need to switch active tab? -> Yes otherwise the other buttons on the page do not get updated.
 // - fix ui
-// - add all the craftable resources
-// - Fix space missions being on same checkbox as space buildings
 // - make function for getConfig with return type bool
 // - do not build last house
-// - automatic policies
 // - smarter trading so more stuff gets traded
-// - always trade with leviathans
-// bls generation
+// - bls generation
 
 // Define global variables to satisfy ESLint
 /* global gamePage */
@@ -38,6 +34,8 @@ let kbSpaceBuildings = {}
 let kbScienceUpgrades = {}
 let kbSpaceTravel = {}
 let kbWorkshopUpgrades = {}
+let kbJobs = {}
+let kbBuildingUpgrades = {}
 
 // eslint-disable-next-line no-unused-vars
 function kittyBotToggle () {
@@ -50,39 +48,50 @@ function kittyBotToggle () {
 // ########################################################################
 
 function kbBuildItems (activeTabName, tabIndex) {
-  gamePage.ui.activeTabId = activeTabName
-  gamePage.render()
-  let buttons = gamePage.tabs[tabIndex].buttons.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
-  // Bonfire tab contains the buttons as children not buttons.
-  if (activeTabName === 'Bonfire') {
-    if (kbGetConfig('kb_use_' + activeTabName.toLowerCase(), false) !== 'checked') {
-      return
-    }
-    buttons = gamePage.tabs[tabIndex].children.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
-  }
-  if (activeTabName === 'Religion') {
-    if (kbGetConfig('kb_use_' + activeTabName.toLowerCase(), false) === 'checked') {
-      // Get faith upgrades
-      buttons = gamePage.tabs[tabIndex].rUpgradeButtons.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
-    }
-  }
-  if (activeTabName === 'Space') {
-    // Get launch buttons
-    if (kbGetConfig('kb_use_planet_missions', false) === 'checked') {
-      buttons = gamePage.tabs[tabIndex].GCPanel.children.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
-    }
-    // Get planet buildings
-    if (kbGetConfig('kb_use_space', false) === 'checked') {
-      buttons = buttons.concat(gamePage.tabs[tabIndex].planetPanels.map(pp => pp.children.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')).flat())
-    }
-  }
-  buttons.forEach(btn => {
-    try {
-      if (kbGetConfig('kb_input_' + btn.model.metadata.name, true) === 'checked' && kbCheckPrices(btn.model.prices)) {
-        btn.controller.buyItem(btn.model, {}, function (result) { if (result) { console.log('built: ' + btn.model.name); btn.update() } })
+  let didStuff = false
+  do {
+    gamePage.ui.activeTabId = activeTabName
+    gamePage.render()
+    didStuff = false
+    let buttons = gamePage.tabs[tabIndex].buttons.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
+    // Bonfire tab contains the buttons as children not buttons.
+    if (activeTabName === 'Bonfire') {
+      if (kbGetConfig('kb_use_' + activeTabName.toLowerCase(), false) !== 'checked') {
+        return
       }
-    } catch (err) { console.log('err(' + btn.model.name + '):' + err) }
-  })
+      buttons = gamePage.tabs[tabIndex].children.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
+    }
+    if (activeTabName === 'Religion') {
+      if (kbGetConfig('kb_use_' + activeTabName.toLowerCase(), false) === 'checked') {
+        // Get faith upgrades
+        buttons = gamePage.tabs[tabIndex].rUpgradeButtons.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
+      }
+    }
+    if (activeTabName === 'Space') {
+      // Get launch buttons
+      if (kbGetConfig('kb_use_planet_missions', false) === 'checked') {
+        buttons = gamePage.tabs[tabIndex].GCPanel.children.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
+      }
+      // Get planet buildings
+      if (kbGetConfig('kb_use_space', false) === 'checked') {
+        buttons = buttons.concat(gamePage.tabs[tabIndex].planetPanels.map(pp => pp.children.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')).flat())
+      }
+    }
+    buttons.forEach(btn => {
+      try {
+        if (kbGetConfig('kb_input_' + btn.model.metadata.name, true) === 'checked' && kbCheckPrices(btn.model.prices)) {
+          btn.controller.buyItem(btn.model, {}, function (result) {
+            if (result) {
+              console.log('built: ' + btn.model.name)
+              btn.update()
+              didStuff = true
+            }
+          })
+        }
+      } catch (err) { console.log('err(' + btn.model.name + '):' + err) }
+    })
+  }
+  while (didStuff)
 }
 
 function kbBuildUnicornBuildings () {
@@ -118,9 +127,17 @@ function kbSendCaravans () {
   gamePage.render()
   const tradeTarget = document.getElementById('kb_trade_routes').value
   if (tradeTarget !== 'kb_trade_none') {
-    const targetButton = gamePage.tabs[4].racePanels.find(rp => rp.race.name === tradeTarget.replace('kb_trade_', ''))
-    if (typeof (targetButton) !== 'undefined' && kbCheckPrices(targetButton.race.buys)) {
-      targetButton.tradeBtn.controller.buyItem(targetButton.tradeBtn.model, {}, function (result) { if (result) { targetButton.tradeBtn.update() } })
+    const racePanel = gamePage.tabs[4].racePanels.find(rp => rp.race.name === tradeTarget.replace('kb_trade_', ''))
+    if (typeof (racePanel) !== 'undefined' && kbCheckPrices(racePanel.race.buys)) {
+      if (kbGetConfig('kb_input_trade_amount_0', true) === 'checked') {
+        racePanel.tradeBtn.controller.buyItem(racePanel.tradeBtn.model, {}, function (result) { if (result) { racePanel.tradeBtn.update() } })
+      } else if (kbGetConfig('kb_input_trade_amount_1', false) === 'checked') {
+        racePanel.tradeBtn.tradeFifthHref.click()
+      } else if (kbGetConfig('kb_input_trade_amount_2', false) === 'checked') {
+        racePanel.tradeBtn.tradeHalfHref.click()
+      } else if (kbGetConfig('kb_input_trade_amount_3', false) === 'checked') {
+        racePanel.tradeBtn.tradeAllHref.link.click()
+      }
     }
   }
 }
@@ -189,13 +206,31 @@ function kbManageKittens () {
 // ########################################################################
 
 function kbHandleAutomations () {
-  gamePage.ui.activeTabId = 'Settlement'
-  gamePage.render()
-  const steamworks = gamePage.tabs[0].children.find(b => typeof (b.model.metadata) !== 'undefined' && b.model.metadata.name === 'steamworks')
-  if (typeof (steamworks) !== 'undefined' && steamworks.model.visible) {
-    steamworks.controller.onAll(steamworks.model)
-    if (steamworks.model.metadata.isAutomationEnabled) {
-      steamworks.controller.handleToggleAutomationLinkClick(steamworks.model)
+  if (kbGetConfig('kb_deactivate_automations', false) === 'checked') {
+    gamePage.ui.activeTabId = 'Bonfire'
+    gamePage.render()
+    const steamworks = gamePage.tabs[0].children.find(b => typeof (b.model.metadata) !== 'undefined' && b.model.metadata.name === 'steamworks')
+    if (typeof (steamworks) !== 'undefined' && steamworks.model.visible) {
+      steamworks.controller.onAll(steamworks.model)
+      if (steamworks.model.metadata.isAutomationEnabled) {
+        steamworks.controller.handleToggleAutomationLinkClick(steamworks.model)
+      }
+    }
+
+    const factory = gamePage.tabs[0].children.find(b => typeof (b.model.metadata) !== 'undefined' && b.model.metadata.name === 'factory')
+    if (typeof (factory) !== 'undefined' && factory.model.visible) {
+      factory.controller.onAll(factory.model)
+      if (factory.model.metadata.isAutomationEnabled) {
+        factory.controller.handleToggleAutomationLinkClick(factory.model)
+      }
+    }
+
+    const calciner = gamePage.tabs[0].children.find(b => typeof (b.model.metadata) !== 'undefined' && b.model.metadata.name === 'calciner')
+    if (typeof (calciner) !== 'undefined' && calciner.model.visible) {
+      calciner.controller.onAll(calciner.model)
+      if (calciner.model.metadata.isAutomationEnabled) {
+        calciner.controller.handleToggleAutomationLinkClick(calciner.model)
+      }
     }
   }
 }
@@ -206,8 +241,13 @@ function kbEnsureLeaderExists () {
   gamePage.ui.activeTabId = 'Settlement'
   gamePage.render()
   if (kbGetConfig('kb_ensure_leader', false) === 'checked') {
+    // switch this up to a worker type that you prefer.
+    const bestWorker = gamePage.village.sim.kittens.filter(a => a.trait.name === 'chemist' && a.job === 'priest').sort(function (a, b) { return b.rank - a.rank })[0]
     const worker = gamePage.village.sim.kittens.sort(function (a, b) { return b.rank - a.rank })[0]
-    if (typeof (worker) !== 'undefined' && gamePage.village.leader === null) {
+    if (typeof (bestWorker) !== 'undefined' && gamePage.village.leader !== bestWorker) {
+      gamePage.village.leader = bestWorker
+      bestWorker.isLeader = true
+    } else if (typeof (worker) !== 'undefined' && gamePage.village.leader === null) {
       gamePage.village.leader = worker
       worker.isLeader = true
     }
@@ -239,6 +279,7 @@ function kbSaveConfiguration () {
     const obj = {}
     obj.id = element.id
     obj.checked = element.checked
+    obj.value = element.value
     return obj
   })
   const selectedRaceId = document.getElementById('kb_trade_routes').selectedOptions[0].value
@@ -246,12 +287,14 @@ function kbSaveConfiguration () {
   localStorage.setItem('kittenBotConfig', JSON.stringify(kbConfig))
   localStorage.setItem('kittenBotRaces', JSON.stringify(kbRaces))
   localStorage.setItem('kittenBotBuildings', JSON.stringify(kbBuildings))
+  localStorage.setItem('kittenBotBuildingUpgrades', JSON.stringify(kbBuildingUpgrades))
   localStorage.setItem('kittenBotUnicornUpgrades', JSON.stringify(kbUnicornUpgrades))
   localStorage.setItem('kittenBotFaithUpgrades', JSON.stringify(kbFaithUpgrades))
   localStorage.setItem('kittenBotSpaceBuildings', JSON.stringify(kbSpaceBuildings))
   localStorage.setItem('kittenBotScienceUpgrades', JSON.stringify(kbScienceUpgrades))
   localStorage.setItem('kittenBotSpaceTravel', JSON.stringify(kbSpaceTravel))
   localStorage.setItem('kittenBotworkshopUpgrades', JSON.stringify(kbWorkshopUpgrades))
+  localStorage.setItem('kittenBotJobs', JSON.stringify(kbJobs))
 }
 
 // ########################################################################
@@ -433,6 +476,78 @@ function kbExecutePolicies () {
   gamePage.opts.noConfirm = false
 }
 
+function kbFillJobs () {
+  if (kbGetConfig('kb_use_jobs_autofill', true) !== 'checked') {
+    return
+  }
+
+  let didStuff = false
+  do {
+    didStuff = false
+    gamePage.ui.activeTabId = 'Village'
+    gamePage.render()
+    const buttons = gamePage.tabs[1].buttons
+      .filter(c => c.model.enabled && c.model.visible && typeof (c.model.job) !== 'undefined')
+      .sort(c => c.model.job.value)
+    buttons.forEach(btn => {
+      try {
+        const config = kbGetConfigValue('kb_input_' + btn.model.job.name, 0)
+        // add worker to job if the configured value is higher or all remaining worker should be added to this job("*")
+        if (typeof (config) !== 'undefined' && (config > btn.model.job.value || config === '*')) {
+          btn.controller.assignJobs(btn.model, 1)
+          didStuff = true
+          console.log('added worker to job: ' + btn.model.job.title)
+        }
+      } catch (err) { console.log('err(' + btn.model.name + '):' + err) }
+    })
+  }
+  while (didStuff)
+}
+
+function kbFindRaces () {
+  if (kbGetConfig('kb_find_races', false) !== 'checked') {
+    return
+  }
+  gamePage.ui.activeTabId = 'Trade'
+  gamePage.render()
+
+  let shouldExplore = false
+  // check for base races. Conditions taken from http://bloodrizer.ru/games/kittens/wiki/index.php?page=Trade
+  const baseRaceCount = gamePage.tabs[4].racePanels.filter(r => r.race.name === 'griffins' || r.race.name === 'sharks' || r.race.name === 'lizards').length
+  if (baseRaceCount !== 3 && (gamePage.calendar.year > 20 || (gamePage.calendar.year >= 5 && gamePage.karmaKittens > 0) || gamePage.tabs[2].metaphysicsPanel.children.some(c => c.id === 'diplomacy' && c.model.metadata.researched))) {
+    shouldExplore = true
+  } else if (!gamePage.tabs[4].racePanels.some(r => r.race.name === 'nagas') && gamePage.resPool.resources.some(r => r.name === 'culture' && r.value >= 1500)) {
+    shouldExplore = true
+  } else if (!gamePage.tabs[4].racePanels.some(r => r.race.name === 'spiders') && gamePage.resPool.resources.some(r => r.name === 'ship' && r.value >= 100) && gamePage.resPool.resources.some(r => r.name === 'science' && r.maxValue >= 125000)) {
+    shouldExplore = true
+  } else if (!gamePage.tabs[4].racePanels.some(r => r.race.name === 'dragons') && gamePage.tabs[2].buttons.some(b => b.id === 'nuclearFission' && b.model.metadata.researched)) {
+    shouldExplore = true
+  }
+
+  if (shouldExplore) {
+    const btn = gamePage.tabs[4].exploreBtn
+    try {
+      if (kbCheckPrices(btn.model.prices)) {
+        btn.controller.buyItem(btn.model, {}, function (result) { if (result) { console.log('send explorers'); btn.update() } })
+      }
+    } catch (err) { console.log('err(' + btn.model.name + '):' + err) }
+  }
+}
+
+function kbUpgradeBuildings () {
+  if (kbGetConfig('kb_use_building_upgrades', false) !== 'checked') {
+    return
+  }
+
+  gamePage.opts.noConfirm = true
+  gamePage.tabs[0].children.filter(c => typeof (c.model.metadata) !== 'undefined' && typeof (c.model.metadata.stages) !== 'undefined' && (c.model.metadata.stages.length > 1)).forEach(function (buildingButton) {
+    if (kbGetConfig('kb_input_upgrade_' + buildingButton.model.metadata.stages[1].label) === 'checked' && buildingButton.opts.name !== buildingButton.model.metadata.stages[1].label) {
+      buildingButton.controller.upgrade(buildingButton.model)
+      console.log('Upgraded to ' + buildingButton.model.metadata.stages[1].label)
+    }
+  })
+  gamePage.opts.noConfirm = true
+}
 // ########################################################################
 
 function kittyBotGo () {
@@ -442,10 +557,13 @@ function kittyBotGo () {
   kbBuildItems('Religion', 5)
   kbBuildUnicornBuildings()
   kbBuildItems('Space', 6)
+  kbUpgradeBuildings()
   kbBuildItems('Bonfire', 0)
+  kbFindRaces()
   kbSendCaravans()
   kbTradeWithLeviathans()
   kbFeedLeviathans()
+  kbHandleAutomations()
 
   // Use ALL Catpower for hunt
   const kbCatpowerResource = gamePage.resPool.get('manpower')
@@ -476,7 +594,7 @@ function kittyBotGo () {
   kbLimitConsumer()
   kbPartyAllTheTime()
   kbExecutePolicies()
-  // kbHandleAutomations()
+  kbFillJobs()
 
   gamePage.ui.activeTabId = origTab
   gamePage.render()
@@ -528,6 +646,13 @@ function kbLoadElements () {
     buildingsObj[buildingButton.model.metadata.name] = buildingButton.opts.name
   })
   kbBuildings = Object.assign({}, kbBuildings, buildingsObj)
+
+  kbBuildingUpgrades = JSON.parse(localStorage.getItem('kittenBotBuildingUpgrades'))
+  const buildingUpgradesObj = {}
+  gamePage.tabs[0].children.filter(c => typeof (c.model.metadata) !== 'undefined' && typeof (c.model.metadata.stages) !== 'undefined' && (c.model.metadata.stages.length > 1)).forEach(function (buildingButton) {
+    buildingUpgradesObj[buildingButton.model.metadata.stages[1].label] = buildingButton.model.metadata.stages[1].label
+  })
+  kbBuildingUpgrades = Object.assign({}, kbBuildingUpgrades, buildingUpgradesObj)
 
   // Religion
   gamePage.ui.activeTabId = 'Religion'
@@ -582,6 +707,16 @@ function kbLoadElements () {
     workshopObj[upgrade.id] = upgrade.model.name
   })
   kbWorkshopUpgrades = Object.assign({}, kbWorkshopUpgrades, workshopObj)
+
+  // Settlement
+  gamePage.ui.activeTabId = 'Village'
+  gamePage.render()
+  kbJobs = JSON.parse(localStorage.getItem('kittenBotJobs'))
+  const jobsObj = {}
+  gamePage.tabs[1].buttons.filter(b => typeof (b.model.job) !== 'undefined').forEach(function (upgrade) {
+    jobsObj[upgrade.model.job.name] = upgrade.model.job.title
+  })
+  kbJobs = Object.assign({}, kbJobs, jobsObj)
 }
 
 // ########################################################################
@@ -646,7 +781,7 @@ function kbUIAccess () {
   tempString +=
     ' & ' +
     '<a onclick="kbToggleUI();" href="#">kittyBot</a>' +
-    '<span style="font-size: small;"> ver 0.4 by LoyLT & tstaec</span>'
+    '<span style="font-size: small;"> ver 0.4 by tstaec & LoyLT</span>'
   kittyBotUIaccess.innerHTML = tempString
 
   kbLoadElements()
@@ -660,7 +795,7 @@ function kbGetConfig (key, defaultValue) {
   }
   const value = kbConfig.find(k => k.id === key)
   let checked = false
-  if (typeof (value) === 'undefined') {
+  if (typeof (value) === 'undefined' || typeof (value.checked) === 'undefined') {
     checked = defaultValue
   } else {
     checked = value.checked
@@ -670,6 +805,18 @@ function kbGetConfig (key, defaultValue) {
     return 'checked'
   }
   return ''
+}
+
+function kbGetConfigValue (key, defaultValue) {
+  if (typeof (kbConfig) === 'undefined' || kbConfig === null) {
+    kbConfig = []
+  }
+  const value = kbConfig.find(k => k.id === key)
+  if (typeof (value) === 'undefined' || typeof (value.value) === 'undefined' || value.value === '') {
+    return defaultValue
+  } else {
+    return value.value
+  }
 }
 
 function kbCreatUI () {
@@ -694,11 +841,13 @@ function kbCreatUI () {
     '<input id="kb_manage" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_manage', true) + ' />Manage workers<br />' +
     '<input id="kb_ensure_leader" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_ensure_leader', true) + ' />Ensure Leader<br />' +
     '<input id="kb_build_embassies" type="checkbox" style="vertical-align: sub; display: inline-block;"  ' + kbGetConfig('kb_build_embassies', true) + ' />Build embassies<br />' +
+    '<input id="kb_deactivate_automations" type="checkbox" style="vertical-align: sub; display: inline-block;"  ' + kbGetConfig('kb_deactivate_automations', true) + ' />Deactivate unwanted automations<br />' +
     '<input id="kb_praise" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_praise', true) + ' />Praise the sun!<br />' +
     '<input id="kb_sacrifice_unicorns" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_sacrifice_unicorns', true) + ' />Sacrifice unicorns<br />' +
     '<input id="kb_sacrifice_alicorns" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_sacrifice_alicorns', true) + ' />Sacrifice alicorns<br />' +
     '<input id="kb_limit_consumer" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_limit_consumer', true) + ' />Limit consumer<br />' +
     '<input id="kb_start_festival" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_start_festival', true) + ' />Start festivals<br />' +
+    '<input id="kb_find_races" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_find_races', false) + ' />Explore for new races<br />' +
     '<input id="kb_observeEvents" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_observeEvents', true) + ' />Observe astronomical events<br />' +
     '<input id="kb_gatherCatnip" type="checkbox" style="vertical-align: sub;" ' + kbGetConfig('kb_gatherCatnip', true) + '/>Gather catnip automatically<br />' +
     '<input id="kb_trade_leviathans" type="checkbox" style="vertical-align: sub;" ' + kbGetConfig('kb_trade_leviathans', false) + '/>Trade with leviathans if possible<br />' +
@@ -724,6 +873,12 @@ function kbCreatUI () {
 
   tempString +=
     '</select>' +
+    '<blockquote> Trade amount:</br>' +
+    '<input id="kb_input_trade_amount_0" type="radio" name="trade_amount" value="0" style="vertical-align: sub;" ' + kbGetConfig('kb_input_trade_amount_0', true) + '/>One </br>' +
+    '<input id="kb_input_trade_amount_1" type="radio" name="trade_amount" value="1" style="vertical-align: sub;" ' + kbGetConfig('kb_input_trade_amount_1', false) + '/>fifth </br>' +
+    '<input id="kb_input_trade_amount_2" type="radio" name="trade_amount" value="2" style="vertical-align: sub;" ' + kbGetConfig('kb_input_trade_amount_2', false) + ' />half </br>' +
+    '<input id="kb_input_trade_amount_3" type="radio" name="trade_amount" value="2" style="vertical-align: sub;" ' + kbGetConfig('kb_input_trade_amount_3', false) + ' />all </br>' +
+    '</blockquote>' +
     '</div>' +
     '<div style="vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
     '<p><input id="kb_use_religion" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_use_religion', true) + ' /><u>Spend faith on:</u></p>'
@@ -743,6 +898,18 @@ function kbCreatUI () {
     tempString += '<div id="kb_unicornDiv_' + key + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />' + kbUnicornUpgrades[key] + '</div>'
   }
 
+  // Automate jobs assignement
+  tempString +=
+    '</div>' +
+    '<div style="vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p><input id="kb_use_jobs_autofill" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_use_jobs_autofill', false) + ' /><u>Automatically fill jobs:</u></p>' +
+    '<span>Use "*" as an indicator to use all remaining workers.<span>'
+
+  for (const key in kbJobs) {
+    const id = 'kb_input_' + key
+    tempString += '<div id="kb_jobsDiv_' + key + '"><input id="' + id + '" type="text" style="display: inline-block; vertical-align: sub;" value="' + kbGetConfigValue(id, 0) + '" />' + kbJobs[key] + '</div>'
+  }
+
   tempString +=
     '</div>' +
     '<div style="vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
@@ -751,6 +918,16 @@ function kbCreatUI () {
   for (const key in kbBuildings) {
     const id = 'kb_input_' + key
     tempString += '<div id="kb_bldDiv_' + key + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />Building: ' + kbBuildings[key] + '</div>'
+  }
+
+  tempString +=
+  '</div>' +
+  '<div style="vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p><input id="kb_use_building_upgrades" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_use_building_upgrades', false) + ' /><u>Upgrade Buildings:</u></p>'
+
+  for (const key in kbBuildingUpgrades) {
+    const id = 'kb_input_upgrade_' + key
+    tempString += '<div id="kb_bldUpgrade_' + key + '"><input id="' + id + '" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig(id, true) + ' />Upgrade: ' + kbBuildingUpgrades[key] + '</div>'
   }
 
   tempString +=
@@ -824,8 +1001,8 @@ function kbCreatUI () {
   })
   tempString += '</div>' +
 
-  '<div style="vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-  '<p><input id="kb_automate_policies" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_automate_policies', false) + ' /><u>Select which policies should be used</u></p>'
+    '<div style="vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
+    '<p><input id="kb_automate_policies" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_automate_policies', false) + ' /><u>Select which policies should be used</u></p>'
 
   // Group all policies by price value
   gamePage.ui.activeTabId = 'Science'
