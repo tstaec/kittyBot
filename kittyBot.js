@@ -50,22 +50,20 @@ function kittyBotToggle () {
 function kbBuildItems (activeTabName, tabIndex) {
   let didStuff = false
   do {
+    if (kbGetConfig('kb_use_' + activeTabName.toLowerCase(), false) !== 'checked' && activeTabName !== 'Space') {
+      return
+    }
     gamePage.ui.activeTabId = activeTabName
     gamePage.render()
     didStuff = false
     let buttons = gamePage.tabs[tabIndex].buttons.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
     // Bonfire tab contains the buttons as children not buttons.
     if (activeTabName === 'Bonfire') {
-      if (kbGetConfig('kb_use_' + activeTabName.toLowerCase(), false) !== 'checked') {
-        return
-      }
       buttons = gamePage.tabs[tabIndex].children.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
     }
     if (activeTabName === 'Religion') {
-      if (kbGetConfig('kb_use_' + activeTabName.toLowerCase(), false) === 'checked') {
-        // Get faith upgrades
-        buttons = gamePage.tabs[tabIndex].rUpgradeButtons.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
-      }
+      // Get faith upgrades
+      buttons = gamePage.tabs[tabIndex].rUpgradeButtons.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
     }
     if (activeTabName === 'Space') {
       // Get launch buttons
@@ -73,9 +71,7 @@ function kbBuildItems (activeTabName, tabIndex) {
         buttons = gamePage.tabs[tabIndex].GCPanel.children.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')
       }
       // Get planet buildings
-      if (kbGetConfig('kb_use_space', false) === 'checked') {
-        buttons = buttons.concat(gamePage.tabs[tabIndex].planetPanels.map(pp => pp.children.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')).flat())
-      }
+      buttons = buttons.concat(gamePage.tabs[tabIndex].planetPanels.map(pp => pp.children.filter(b => b.model.visible && b.model.enabled && typeof (b.model.metadata) !== 'undefined')).flat())
     }
     buttons.forEach(btn => {
       try {
@@ -132,9 +128,9 @@ function kbSendCaravans () {
       if (kbGetConfig('kb_input_trade_amount_0', true) === 'checked') {
         racePanel.tradeBtn.controller.buyItem(racePanel.tradeBtn.model, {}, function (result) { if (result) { racePanel.tradeBtn.update() } })
       } else if (kbGetConfig('kb_input_trade_amount_1', false) === 'checked') {
-        racePanel.tradeBtn.tradeFifthHref.click()
+        racePanel.tradeBtn.tradeFifthHref.link.click()
       } else if (kbGetConfig('kb_input_trade_amount_2', false) === 'checked') {
-        racePanel.tradeBtn.tradeHalfHref.click()
+        racePanel.tradeBtn.tradeHalfHref.link.click()
       } else if (kbGetConfig('kb_input_trade_amount_3', false) === 'checked') {
         racePanel.tradeBtn.tradeAllHref.link.click()
       }
@@ -148,7 +144,12 @@ function kbTradeWithLeviathans () {
   if (kbGetConfig('kb_trade_leviathans', false) === 'checked' && kbUse('gold')) {
     const targetButton = gamePage.tabs[4].racePanels.find(rp => rp.race.name === 'leviathans')
     if (typeof (targetButton) !== 'undefined' && kbCheckPrices(targetButton.race.buys)) {
-      targetButton.tradeBtn.controller.buyItem(targetButton.tradeBtn.model, {}, function (result) { if (result) { targetButton.tradeBtn.update() } })
+      targetButton.tradeBtn.controller.buyItem(targetButton.tradeBtn.model, {}, function (result) {
+        if (result) {
+          targetButton.tradeBtn.update()
+          console.log('traded with leviathans')
+        }
+      })
     }
   }
 }
@@ -227,7 +228,7 @@ function kbHandleAutomations () {
 
     const calciner = gamePage.tabs[0].children.find(b => typeof (b.model.metadata) !== 'undefined' && b.model.metadata.name === 'calciner')
     if (typeof (calciner) !== 'undefined' && calciner.model.visible) {
-      calciner.controller.onAll(calciner.model)
+      // calciner.controller.onAll(calciner.model)
       if (calciner.model.metadata.isAutomationEnabled) {
         calciner.controller.handleToggleAutomationLinkClick(calciner.model)
       }
@@ -327,7 +328,7 @@ function kbCheckPrices (prices) {
 function kbIsMaxed (materialName) {
   const resource = gamePage.resPool.get(materialName)
   // Only craft items if we would reach max storage in the next tick
-  return (resource.craftable || (resource.maxValue - (resource.perTickCached * kbTicksPerSecond * (kbRunInterval / 1000)) <= resource.value))
+  return ((resource.craftable && materialName !== 'wood') || (resource.maxValue - (resource.perTickCached * kbTicksPerSecond * (kbRunInterval / 1000)) <= resource.value))
 }
 
 function kbCheckRatio (materials, targetResourceName, ratio) {
@@ -335,7 +336,7 @@ function kbCheckRatio (materials, targetResourceName, ratio) {
     const resource = gamePage.resPool.get(material.name)
     const targetResource = gamePage.resPool.get(targetResourceName)
     const actualRatio = resource.value / targetResource.value
-    return (!isFinite(actualRatio) || actualRatio > ratio) && kbIsMaxed(material.name)
+    return (!isFinite(actualRatio) || actualRatio > ratio || (!resource.craftable && kbIsMaxed(material.name))) && kbIsMaxed(material.name)
   })
 }
 
@@ -343,8 +344,8 @@ function kbCalculateCraftAmount (materials, ratio, targetResourceName) {
   // console.log(targetResourceName)
   return Math.min(...materials.map(function (material) {
     const resource = gamePage.resPool.get(material.name)
-    // wood is craftable because it can be transformed from catnip but should not betreated as such
-    // starcharts are not craftables but are not generated most ofthe time either
+    // wood is craftable because it can be transformed from catnip but should not be treated as such
+    // starcharts are not craftables but are not generated most of the time either
     if (resource.name === 'starchart' || (resource.craftable && resource.name !== 'wood')) {
       return kbCalculateCraftAmountForCraftable(resource, material, ratio, targetResourceName)
     }
@@ -488,7 +489,9 @@ function kbFillJobs () {
     gamePage.render()
     const buttons = gamePage.tabs[1].buttons
       .filter(c => c.model.enabled && c.model.visible && typeof (c.model.job) !== 'undefined')
-      .sort(c => c.model.job.value)
+      .sort(function (a, b) {
+        return a.model.job.value - b.model.job.value
+      })
     buttons.forEach(btn => {
       try {
         const config = kbGetConfigValue('kb_input_' + btn.model.job.name, 0)
@@ -517,6 +520,8 @@ function kbFindRaces () {
   if (baseRaceCount !== 3 && (gamePage.calendar.year > 20 || (gamePage.calendar.year >= 5 && gamePage.karmaKittens > 0) || gamePage.tabs[2].metaphysicsPanel.children.some(c => c.id === 'diplomacy' && c.model.metadata.researched))) {
     shouldExplore = true
   } else if (!gamePage.tabs[4].racePanels.some(r => r.race.name === 'nagas') && gamePage.resPool.resources.some(r => r.name === 'culture' && r.value >= 1500)) {
+    shouldExplore = true
+  } else if (!gamePage.tabs[4].racePanels.some(r => r.race.name === 'zebras') && gamePage.resPool.resources.some(r => r.name === 'ship' && r.value >= 1)) {
     shouldExplore = true
   } else if (!gamePage.tabs[4].racePanels.some(r => r.race.name === 'spiders') && gamePage.resPool.resources.some(r => r.name === 'ship' && r.value >= 100) && gamePage.resPool.resources.some(r => r.name === 'science' && r.maxValue >= 125000)) {
     shouldExplore = true
@@ -548,6 +553,67 @@ function kbUpgradeBuildings () {
   })
   gamePage.opts.noConfirm = true
 }
+
+function kbTimeCrystalFarm () {
+  if (kbGetConfig('kb_farm_timecrystals', false) !== 'checked') {
+    return
+  }
+
+  let currentHeat = gamePage.time.heat
+
+  if (currentHeat > 0) {
+    return
+  }
+
+  gamePage.ui.activeTabId = 'Time'
+  gamePage.render()
+
+  const blastfurnace = gamePage.tabs[7].children[2].children[0].children[2]
+  // Yeah no idea, sometimes it doesn't really load correctly
+  blastfurnace.render()
+
+  let maxHeat = blastfurnace.model.on * 100 + 100
+
+  const shatterButtton = gamePage.tabs[7].children[2].children[0].children[0]
+  const leviathans = gamePage.tabs[4].racePanels.find(rp => rp.race.name === 'leviathans')
+  if (typeof (leviathans) === 'undefined') {
+    return
+  }
+
+  // Run while we still have timeCrystals and heat still has room
+  while (gamePage.resPool.get('timeCrystal').value > 1 && currentHeat < maxHeat && leviathans.tradeBtn.model.visible) {
+    maxHeat = blastfurnace.model.on * 100 + 100
+    currentHeat = gamePage.time.heat
+    shatterButtton.controller.doShatterAmt(shatterButtton.model, 20)
+    leviathans.tradeBtn.tradeAllHref.link.click()
+    gamePage.craftAll('eludium')
+  }
+}
+
+function kbCraftWood () {
+  if (kbGetConfig('kb_craft_wood', false) !== 'checked') {
+    return
+  }
+
+  const button = gamePage.tabs[0].children.find(btn => btn.model.name === 'Refine catnip' && btn.model.enabled && btn.model.visible)
+  if (typeof (button) !== 'undefined' && kbCheckPrices(button.model.prices) && kbCheckRatio(button.model.prices, 'wood', 1)) {
+    try {
+      gamePage.craft('wood', kbCalculateCraftAmount(button.model.prices, 1, 'wood'))
+    } catch (err) { console.log('err(' + button.model.name + '):' + err) }
+  }
+}
+
+function kbAutoReset () {
+  if (kbGetConfig('kb_auto_reset', false) !== 'checked') {
+    return
+  }
+
+  const chronospheres = gamePage.tabs[0].children.find(b => b.model.name === 'Chronosphere')
+  const threshold = kbGetConfigValue('kb_input_reset_threshold', 0)
+  if (typeof (chronospheres) !== 'undefined' && chronospheres.model.on >= threshold) {
+    console.log('reset opportunity detected')
+  }
+}
 // ########################################################################
 
 function kittyBotGo () {
@@ -559,15 +625,18 @@ function kittyBotGo () {
   kbBuildItems('Space', 6)
   kbUpgradeBuildings()
   kbBuildItems('Bonfire', 0)
+  kbAutoReset()
   kbFindRaces()
   kbSendCaravans()
   kbTradeWithLeviathans()
   kbFeedLeviathans()
+  kbTimeCrystalFarm()
   kbHandleAutomations()
 
   // Use ALL Catpower for hunt
   const kbCatpowerResource = gamePage.resPool.get('manpower')
-  if (kbUse('manpower') && ((kbCatpowerResource.maxValue - (kbCatpowerResource.perTickCached * 6)) <= kbCatpowerResource.value)) { gamePage.resPool.village.huntAll() }
+  if (kbUse('manpower') && (gamePage.tabs[1].huntBtn.model.enabled && gamePage.tabs[1].huntBtn.model.visible &&
+     (kbCatpowerResource.maxValue - (kbCatpowerResource.perTickCached * 6)) <= kbCatpowerResource.value)) { gamePage.resPool.village.huntAll() }
 
   // Auto Observe Astronomical Events
   if (kbGetConfig('kb_observeEvents', false) === 'checked') {
@@ -584,6 +653,7 @@ function kittyBotGo () {
     gamePage.bld.gatherCatnip()
   }
 
+  kbCraftWood()
   kbCraft()
   kbSacrificeUnicorns()
   kbSacrificeAlicorns()
@@ -722,11 +792,11 @@ function kbLoadElements () {
 // ########################################################################
 
 function kbLimitConsumer () {
-  gamePage.ui.activeTabId = 'Bonfire'
-  gamePage.render()
-  const limit = 0.5 // Only this percentage of the base recources are permitted to be consumed by the consumer.
-
   if (kbGetConfig('kb_limit_consumer') === 'checked') {
+    gamePage.ui.activeTabId = 'Bonfire'
+    gamePage.render()
+    const limit = 0.5 // Only this percentage of the base recources are permitted to be consumed by the consumer.
+
     const smelter = gamePage.tabs[0].children.find(c => typeof (c.model.metadata) !== 'undefined' && c.model.metadata.name === 'smelter')
     if (typeof (smelter) !== 'undefined') {
       const woodPerTick = gamePage.resPool.get('wood').perTickCached
@@ -849,9 +919,15 @@ function kbCreatUI () {
     '<input id="kb_start_festival" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_start_festival', true) + ' />Start festivals<br />' +
     '<input id="kb_find_races" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_find_races', false) + ' />Explore for new races<br />' +
     '<input id="kb_observeEvents" type="checkbox" style="vertical-align: sub; display: inline-block;" ' + kbGetConfig('kb_observeEvents', true) + ' />Observe astronomical events<br />' +
-    '<input id="kb_gatherCatnip" type="checkbox" style="vertical-align: sub;" ' + kbGetConfig('kb_gatherCatnip', true) + '/>Gather catnip automatically<br />' +
+    '<input id="kb_gatherCatnip" type="checkbox" style="vertical-align: sub;" ' + kbGetConfig('kb_gatherCatnip', false) + '/>Gather catnip automatically<br />' +
+    '<input id="kb_craft_wood" type="checkbox" style="vertical-align: sub;" ' + kbGetConfig('kb_craft_wood', false) + '/>Refine catnip to wood<br />' +
     '<input id="kb_trade_leviathans" type="checkbox" style="vertical-align: sub;" ' + kbGetConfig('kb_trade_leviathans', false) + '/>Trade with leviathans if possible<br />' +
     '<input id="kb_feed_leviathans" type="checkbox" style="vertical-align: sub;" ' + kbGetConfig('kb_feed_leviathans', false) + '/>Feed leviathans if possible<br />' +
+    '<input id="kb_farm_timecrystals" type="checkbox" style="vertical-align: sub;" ' + kbGetConfig('kb_farm_timecrystals', false) + '/>shatter time crystals while heat is not at max<br />' +
+
+    '<input id="kb_auto_reset" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_auto_reset', false) + ' />Automatically when reached: ' +
+    '<input id="kb_input_reset_threshold" type="text" style="display: inline-block; vertical-align: sub;" value="' + kbGetConfigValue('kb_input_reset_threshold', 0) + '" /> chronospheres<br />' +
+
     '<label for="kb_tradeRoutes">Send caravans to:</label>' +
     '<select name="kb_tradeRoutes" id="kb_trade_routes">' +
     '<option value="kb_trade_none">None</option>'
@@ -964,7 +1040,7 @@ function kbCreatUI () {
     '</div>' +
 
     '<div id="kb_workshop_research" style="vertical-align: top; display: inline-block; border-style: solid; border-width: 1px; padding: 5px;">' +
-    '<p><input id="kb_use_workshop" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_use_workshop_upgrades', true) + ' /><u>Buy Workshop upgrades:</u></p>'
+    '<p><input id="kb_use_workshop" type="checkbox" style="display: inline-block; vertical-align: sub;" ' + kbGetConfig('kb_use_workshop', true) + ' /><u>Buy Workshop upgrades:</u></p>'
 
   for (const key in kbWorkshopUpgrades) {
     const id = 'kb_input_' + key
